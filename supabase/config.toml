@@ -1,0 +1,7 @@
+# Minimal Supabase CLI config for Kaizenext Brain Battle.
+project_id = "mjbdrkfpmxcgizasuyqj"
+
+[functions.quiz-api]
+# Participants are anonymous (no Supabase Auth JWT). The function performs
+# its own participant-token authentication, so gateway JWT checks are off.
+verify_jwt = false

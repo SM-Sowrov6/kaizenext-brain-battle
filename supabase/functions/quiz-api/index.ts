@@ -15,7 +15,20 @@ import {
 } from '../_shared/util.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+// Server-only privileged key, injected by Supabase (never set by us, never sent to browsers).
+// Newer projects expose `SUPABASE_SECRET_KEYS` ({"default":"sb_secret_…"}); older ones the legacy service-role JWT.
+function resolveServerKey(): string {
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, string>
+    if (keys.default) return keys.default
+    const first = Object.values(keys)[0]
+    if (first) return first
+  } catch { /* fall through */ }
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (legacy) return legacy
+  throw new Error('No server key available: expected SUPABASE_SECRET_KEYS or SUPABASE_SERVICE_ROLE_KEY')
+}
+const SERVICE_ROLE_KEY = resolveServerKey()
 const GRACE_MS = 15_000 // network latency allowance after the deadline
 const MAX_BODY_BYTES = 32 * 1024
 

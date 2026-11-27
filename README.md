@@ -7,11 +7,10 @@ Students scan a QR code, register in ~30 seconds, take a timed MCQ quiz on their
 | Interface | Route | Who |
 |---|---|---|
 | Participant portal | `/`, `/register`, `/instructions`, `/quiz`, `/result` | Students (phones) |
-| Live leaderboard | `/leaderboard` (`?rotate=1`, `?day=1\|2\|all`, `?theme=…`) | Booth monitor |
+| Live leaderboard | `/leaderboard` (`?rotate=1`, `?day=1\|2\|all`) | Booth monitor |
 | Admin dashboard | `/admin` | Kaizenext team |
 
-Three themes, switchable from the header toggle (and settable as the event default in Admin → Settings):
-**Midnight** (signature navy + electric blue/violet), **Kaizenext** (forest + signal orange, from kaizenext.com), **Uttirno** (navy + scholar gold, from uttirno.org).
+Design: the Kaizenext brand theme (deep forest + signal orange, Schibsted Grotesk + Instrument Serif), taken from kaizenext.com.
 
 ---
 
@@ -41,15 +40,15 @@ Admin browser ──(Supabase Auth session)──► Postgres (RLS: is_admin())
 
 ```
 src/
-  components/ui/       design-system primitives (Button, Card, Form, Dialog, Toast, ThemeSwitcher…)
+  components/ui/       design-system primitives (Button, Card, Form, Dialog, Toast…)
   components/landing/  hero visual
   components/quiz/     quiz-specific parts (timer, options, navigator, steps)
-  hooks/               theme, config, session, admin auth, utilities
+  hooks/               config, session, admin auth, utilities
   layouts/             public + admin layouts
   pages/               participant pages, leaderboard, admin/*
   services/            API layer: participantApi (Edge Function), adminApi (Supabase), demoBackend (dev only)
   lib/                 env, supabase client, formatting, CSV, storage
-  styles/index.css     design tokens for all 3 themes
+  styles/index.css     Kaizenext design tokens
   types/               shared types
 supabase/
   migrations/          schema, RLS, SQL functions
@@ -138,7 +137,7 @@ Admin → **QR code**: enter the public URL → download **PNG** (2048 px, high 
 
 ## 5. Event-day operation
 
-- **Booth monitor:** open `/leaderboard?rotate=1` → full-screen button (or F11). It polls every 5 s, survives network blips ("Reconnecting…"), auto-scales on large/4K screens, and alternates *Today* ↔ *Overall* every 20 s. Add `&theme=kaizenext` (or `uttirno`) to pin a theme.
+- **Booth monitor:** open `/leaderboard?rotate=1` → full-screen button (or F11). It polls every 5 s, survives network blips ("Reconnecting…"), auto-scales on large/4K screens, and alternates *Today* ↔ *Overall* every 20 s.
 - **Day switch:** Admin → Dashboard → *Active event day* → Day 2 on the morning of Nov 29.
 - **Open/close:** "Quiz live" and "Registration open" toggles on the dashboard take effect within seconds.
 - **Interrupted participant:** Admin → Participants → open them → *Delete participant* lets them register again.
@@ -148,7 +147,7 @@ Admin → **QR code**: enter the public URL → download **PNG** (2048 px, high 
 
 ## 6. Configuration reference
 
-Admin → Settings: event name/venue/dates, active day, quiz live, registration open, duration, questions per attempt, default marks, negative marking (+ value), shuffle questions/options, competition description, rules, prizes, default theme.
+Admin → Settings: event name/venue/dates, active day, quiz live, registration open, duration, questions per attempt, default marks, negative marking (+ value), shuffle questions/options, competition description, rules, prizes.
 
 Defaults: 10 questions · 5 minutes · 1 mark each · no negative marking · one attempt.
 

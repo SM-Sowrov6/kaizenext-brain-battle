@@ -53,7 +53,7 @@ const mapQuiz = (r: Row): QuizSettings => ({
 const num = (v: any) => (v == null ? null : Number(v))
 
 const mapWinner = (w: Row): DrawWinner => ({
-  id: w.id, position: Number(w.position), attemptId: w.attempt_id, name: w.display_name,
+  id: w.id, position: Number(w.prize_position), attemptId: w.attempt_id, name: w.display_name,
   university: w.university, department: w.department, drawnAt: w.drawn_at,
 })
 

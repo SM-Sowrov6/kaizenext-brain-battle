@@ -5,7 +5,7 @@
 --  • A redraw never deletes history: the old winner is marked voided.
 -- ════════════════════════════════════════════════════════════════
 
-create table public.draw_winners (
+create table if not exists public.draw_winners (
   id         uuid primary key default gen_random_uuid(),
   event_day  smallint not null check (event_day in (1, 2)),
   position   smallint not null check (position between 1 and 20),
@@ -16,11 +16,15 @@ create table public.draw_winners (
   voided_by  uuid references auth.users (id) on delete set null
 );
 -- one active winner per prize position per day, and a person can win only once
-create unique index draw_winners_active_position on public.draw_winners (event_day, position) where voided_at is null;
-create unique index draw_winners_active_attempt  on public.draw_winners (attempt_id) where voided_at is null;
+create unique index if not exists draw_winners_active_position on public.draw_winners (event_day, position) where voided_at is null;
+create unique index if not exists draw_winners_active_attempt  on public.draw_winners (attempt_id) where voided_at is null;
 
 alter table public.draw_winners enable row level security;
+drop policy if exists "admin read draw winners" on public.draw_winners;
 create policy "admin read draw winners" on public.draw_winners for select to authenticated using (public.is_admin());
+
+drop function if exists public.get_draw_winners(smallint);
+drop function if exists public.admin_draw_winner(smallint, smallint);
 
 -- Everyone tied on the day's highest score (names only — no emails/phones)
 create or replace function public.get_draw_pool(p_day smallint)
@@ -52,8 +56,8 @@ $$;
 
 create or replace function public.get_draw_winners(p_day smallint)
 returns table (
-  id           uuid,
-  position     smallint,
+  id             uuid,
+  prize_position smallint,
   attempt_id   uuid,
   display_name text,
   university   text,
@@ -75,7 +79,7 @@ $$;
 
 -- Pick one random winner for a prize position from the current pool
 create or replace function public.admin_draw_winner(p_day smallint, p_position smallint)
-returns table (id uuid, position smallint, attempt_id uuid, display_name text, university text, department text, drawn_at timestamptz)
+returns table (id uuid, prize_position smallint, attempt_id uuid, display_name text, university text, department text, drawn_at timestamptz)
 language plpgsql
 security definer
 set search_path = public

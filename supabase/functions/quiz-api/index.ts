@@ -395,7 +395,7 @@ async function actionLeaderboard(body: Record<string, unknown>) {
     })),
     // deno-lint-ignore no-explicit-any
     winners: ((winners ?? []) as any[]).map((w) => ({
-      position: Number(w.position), attemptId: w.attempt_id, name: w.display_name,
+      position: Number(w.prize_position), attemptId: w.attempt_id, name: w.display_name,
       university: w.university, department: w.department, drawnAt: w.drawn_at,
     })),
     stats: { participants: participants ?? 0, completed: completed ?? 0 },

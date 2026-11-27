@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
-import { CheckCircle2, CircleDashed, Clock3, Crown, Home, Medal, Sparkles, TimerOff, Trophy, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Clock3, Home, PartyPopper, Ticket, TimerOff, Trophy, XCircle } from 'lucide-react'
 import { api, toAppError } from '@/services'
 import { useSession } from '@/hooks/useSession'
+import { useConfig } from '@/hooks/useConfig'
 import { useTitle } from '@/hooks/misc'
-import { formatDuration, formatScore, ordinal } from '@/lib/format'
+import { formatDuration, formatScore } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { storage } from '@/lib/storage'
 import { LinkButton } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, PageLoader } from '@/components/ui/Feedback'
 import { FlowSteps } from '@/components/quiz/FlowSteps'
-import type { AttemptResult } from '@/types'
+import type { AttemptResult, Prize } from '@/types'
 
 function tier(pct: number) {
-  if (pct >= 0.9) return { title: 'Legendary!', line: 'That was a masterclass. You’re a serious contender for the top spot.' }
-  if (pct >= 0.7) return { title: 'Brilliant work!', line: 'Sharp mind, quick fingers. Keep an eye on the leaderboard.' }
+  if (pct >= 0.9) return { title: 'Legendary!', line: 'That was a masterclass. Brilliant work!' }
+  if (pct >= 0.7) return { title: 'Brilliant work!', line: 'Sharp mind, quick fingers. Well played!' }
   if (pct >= 0.5) return { title: 'Solid effort!', line: 'A strong showing — you clearly know your stuff.' }
   if (pct > 0) return { title: 'Great try!', line: 'Every battle sharpens the mind. Thanks for taking on the challenge!' }
   return { title: 'Thanks for playing!', line: 'Tough round — but showing up is what counts. Come say hi at the booth!' }
@@ -60,7 +61,8 @@ export default function ResultPage() {
 function ResultView({ r }: { r: AttemptResult }) {
   const pct = r.maxScore > 0 ? Math.max(0, r.score) / r.maxScore : 0
   const t = tier(pct)
-  const celebrate = pct >= 0.7
+  const { config } = useConfig()
+  const celebrate = Boolean(r.draw?.inPool || r.draw?.wonPosition != null)
 
   const count = useMotionValue(0)
   const shown = useTransform(count, (v) => formatScore(Math.round(v * 100) / 100))
@@ -125,21 +127,9 @@ function ResultView({ r }: { r: AttemptResult }) {
             </p>
           )}
 
-          {/* Rank */}
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.2, type: 'spring', stiffness: 260, damping: 22 }} className="relative mt-8 grid gap-3 sm:grid-cols-2">
-            <RankTile
-              icon={r.rankDay === 1 ? <Crown /> : r.rankDay <= 3 ? <Medal /> : <Trophy />}
-              highlight={r.rankDay <= 3}
-              label={`Day ${r.eventDay} rank`}
-              value={r.rankDay > 0 ? ordinal(r.rankDay) : '—'}
-              sub={`of ${r.finishersDay} finisher${r.finishersDay === 1 ? '' : 's'}`}
-            />
-            <RankTile
-              icon={<Sparkles />}
-              label="Overall rank"
-              value={r.rankOverall > 0 ? ordinal(r.rankOverall) : '—'}
-              sub={`of ${r.finishersOverall} across both days`}
-            />
+          {/* Lucky-draw status (no public ranks) */}
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.2, type: 'spring', stiffness: 260, damping: 22 }} className="relative mt-8">
+            <DrawStatus r={r} prizes={config?.event.prizes ?? []} />
           </motion.div>
         </Card>
 
@@ -173,25 +163,55 @@ function ResultView({ r }: { r: AttemptResult }) {
         </Card>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <LinkButton to="/leaderboard" size="lg" block icon={<Trophy className="size-5" />}>View live leaderboard</LinkButton>
+          <LinkButton to="/leaderboard" size="lg" block icon={<Ticket className="size-5" />}>See the lucky draw</LinkButton>
           <LinkButton to="/" size="lg" variant="secondary" block icon={<Home className="size-5" />}>Back to home</LinkButton>
         </div>
         <p className="mt-6 text-center text-xs leading-relaxed text-faint">
-          Winners are announced at the Kaizenext booth. Keep your registered email handy to claim your prize.
+          Winners are drawn at random from the day's top scorers at the Kaizenext booth. Keep your registered email handy to claim your prize.
         </p>
       </motion.div>
     </div>
   )
 }
 
-function RankTile({ icon, label, value, sub, highlight }: { icon: ReactNode; label: string; value: string; sub: string; highlight?: boolean }) {
+function DrawStatus({ r, prizes }: { r: AttemptResult; prizes: Prize[] }) {
+  const { inPool, topScore, poolSize, wonPosition } = r.draw ?? { inPool: false, topScore: null, poolSize: 0, wonPosition: null }
+  if (wonPosition != null) {
+    const prize = prizes[wonPosition - 1]
+    return (
+      <StatusBox tone="win" icon={<PartyPopper />} title={`You won ${prize?.place ? `the ${prize.place}` : 'a prize'}!`}>
+        Your name was drawn{prize?.title ? <> for the <span className="font-semibold text-fg">{prize.title}</span></> : null}. Visit the Kaizenext booth with your registered email to claim it.
+      </StatusBox>
+    )
+  }
+  if (inPool) {
+    const others = poolSize - 1
+    return (
+      <StatusBox tone="win" icon={<Ticket />} title={`You're in the Day ${r.eventDay} lucky draw!`}>
+        You hit today's top score{others > 0 ? <>, along with {others} other{others === 1 ? '' : 's'}</> : null}. Winners are drawn at random at the Kaizenext booth, so stay close!
+        <span className="mt-1.5 block text-xs text-faint">If someone beats this score today, the draw moves to the new top score.</span>
+      </StatusBox>
+    )
+  }
   return (
-    <div className={cn('flex items-center gap-4 rounded-2xl border p-4 text-left', highlight ? 'border-accent/40 bg-accent/8' : 'border-line bg-bg-soft/60')}>
-      <span className={cn('grid size-12 shrink-0 place-items-center rounded-xl [&>svg]:size-5.5', highlight ? 'bg-gradient-accent text-on-accent' : 'bg-surface-2 text-accent')}>{icon}</span>
+    <StatusBox tone="neutral" icon={<Trophy />} title="Today's lucky draw">
+      {topScore != null ? (
+        <>The lucky draw is for today's top score, currently <span className="font-semibold text-fg">{formatScore(topScore)}/{formatScore(r.maxScore)}</span>. Come say hi at the Kaizenext booth!</>
+      ) : (
+        <>Today's lucky draw is for the top scorers. Come say hi at the Kaizenext booth!</>
+      )}
+    </StatusBox>
+  )
+}
+
+function StatusBox({ tone, icon, title, children }: { tone: 'win' | 'neutral'; icon: ReactNode; title: string; children: ReactNode }) {
+  const win = tone === 'win'
+  return (
+    <div className={cn('flex items-start gap-4 rounded-2xl border p-4 text-left sm:p-5', win ? 'border-accent/40 bg-accent/8' : 'border-line bg-bg-soft/60')}>
+      <span className={cn('grid size-12 shrink-0 place-items-center rounded-xl [&>svg]:size-5.5', win ? 'bg-gradient-accent text-on-accent' : 'bg-surface-2 text-accent')}>{icon}</span>
       <div className="min-w-0">
-        <p className="text-xs text-faint">{label}</p>
-        <p className="font-headline text-2xl text-fg">{value}</p>
-        <p className="truncate text-xs text-muted">{sub}</p>
+        <p className="font-headline text-lg text-fg sm:text-xl">{title}</p>
+        <p className="mt-1 text-sm leading-relaxed text-muted">{children}</p>
       </div>
     </div>
   )

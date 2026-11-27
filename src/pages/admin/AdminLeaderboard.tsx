@@ -15,7 +15,7 @@ import type { AdminParticipant, DayScope } from '@/types'
 import { ParticipantDrawer, exportParticipantsCsv } from './AdminParticipants'
 
 export default function AdminLeaderboard() {
-  useTitle('Leaderboard management')
+  useTitle('Results')
   const toast = useToast()
   const list = useAsync(() => adminApi.listParticipants())
   const [scope, setScope] = useState<DayScope>('all')
@@ -55,8 +55,8 @@ export default function AdminLeaderboard() {
   return (
     <>
       <PageHeader
-        title="Leaderboard"
-        description="Full rankings with integrity review. Disqualified attempts are removed from public boards."
+        title="Results"
+        description="Admin-only scores with integrity review. Not shown publicly. Disqualified attempts are excluded from the lucky draw."
         actions={
           <>
             <LinkButton to="/leaderboard" external variant="secondary" size="sm" icon={<ExternalLink className="size-4" />}>Booth display</LinkButton>

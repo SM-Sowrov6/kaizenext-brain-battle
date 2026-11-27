@@ -304,10 +304,16 @@ async function buildResult(attemptId: string) {
     .select('id, event_day, score, max_score, correct_count, incorrect_count, unanswered_count, duration_ms, submitted_at, submit_reason, question_ids, participants(full_name)')
     .eq('id', attemptId).single()
   if (error || !a) throw error ?? new ApiError(404, 'ATTEMPT_NOT_FOUND', 'Result not found.')
-  const [day, overall] = await Promise.all([
-    db.rpc('get_attempt_rank', { p_attempt_id: attemptId, p_day: a.event_day }).single<{ rank: number; total: number }>(),
-    db.rpc('get_attempt_rank', { p_attempt_id: attemptId, p_day: null }).single<{ rank: number; total: number }>(),
+  // No public ranks: tell the participant only whether they are in today's lucky-draw pool.
+  const [{ data: pool, error: pe }, { data: winners, error: we }] = await Promise.all([
+    db.rpc('get_draw_pool', { p_day: a.event_day }),
+    db.rpc('get_draw_winners', { p_day: a.event_day }),
   ])
+  if (pe || we) throw pe ?? we
+  // deno-lint-ignore no-explicit-any
+  const poolRows = (pool ?? []) as any[]
+  // deno-lint-ignore no-explicit-any
+  const won = ((winners ?? []) as any[]).find((w) => w.attempt_id === a.id)
   // deno-lint-ignore no-explicit-any
   const participant = (a as any).participants
   return {
@@ -317,8 +323,12 @@ async function buildResult(attemptId: string) {
     correct: a.correct_count, incorrect: a.incorrect_count, unanswered: a.unanswered_count,
     totalQuestions: a.question_ids.length, durationMs: a.duration_ms, submittedAt: a.submitted_at,
     eventDay: a.event_day, submitReason: a.submit_reason,
-    rankDay: Number(day.data?.rank ?? 0), finishersDay: Number(day.data?.total ?? 0),
-    rankOverall: Number(overall.data?.rank ?? 0), finishersOverall: Number(overall.data?.total ?? 0),
+    draw: {
+      inPool: poolRows.some((r) => r.attempt_id === a.id),
+      topScore: poolRows.length ? Number(poolRows[0].score) : null,
+      poolSize: poolRows.length,
+      wonPosition: won ? Number(won.position) : null,
+    },
   }
 }
 
@@ -349,10 +359,14 @@ async function actionResult(body: Record<string, unknown>) {
   return buildResult(a.id)
 }
 
+// Public booth board: the day's lucky-draw pool (top scorers, names only) and drawn winners.
+// Deliberately carries no ranks, times or per-person scores.
+const POOL_NAME_LIMIT = 120
+
 async function actionLeaderboard(body: Record<string, unknown>) {
-  const scope = body.day === 1 || body.day === 2 ? body.day : 'all'
-  const limit = Math.min(Math.max(Number(body.limit) || 10, 1), 50)
-  const key = `${scope}:${limit}`
+  const { settings } = await loadConfig()
+  const day: 1 | 2 = body.day === 1 || body.day === 2 ? body.day : settings.active_day
+  const key = `pool:${day}`
   const cached = leaderboardCache.get(key)
   if (cached && Date.now() - cached.at < 2500) return cached.value
 
@@ -360,25 +374,29 @@ async function actionLeaderboard(body: Record<string, unknown>) {
     lastExpirySweep = Date.now()
     await db.rpc('finalize_expired_attempts', { p_grace_seconds: Math.ceil(GRACE_MS / 1000) + 5 })
   }
-  const { settings } = await loadConfig()
-  const dayArg = scope === 'all' ? null : scope
 
-  let pq = db.from('participants').select('id', { count: 'exact', head: true })
-  let cq = db.from('attempts').select('id', { count: 'exact', head: true }).eq('status', 'submitted').eq('disqualified', false)
-  if (dayArg) { pq = pq.eq('event_day', dayArg); cq = cq.eq('event_day', dayArg) }
-
-  const [{ data: rows, error }, { count: participants }, { count: completed }] = await Promise.all([
-    db.rpc('get_leaderboard', { p_day: dayArg, p_limit: limit }),
-    pq, cq,
+  const [{ data: pool, error: pe }, { data: winners, error: we }, { count: participants }, { count: completed }] = await Promise.all([
+    db.rpc('get_draw_pool', { p_day: day }),
+    db.rpc('get_draw_winners', { p_day: day }),
+    db.from('participants').select('id', { count: 'exact', head: true }).eq('event_day', day),
+    db.from('attempts').select('id', { count: 'exact', head: true }).eq('status', 'submitted').eq('disqualified', false).eq('event_day', day),
   ])
-  if (error) throw error
+  if (pe || we) throw pe ?? we
+  // deno-lint-ignore no-explicit-any
+  const poolRows = (pool ?? []) as any[]
   const value = {
-    scope,
+    day,
+    topScore: poolRows.length ? Number(poolRows[0].score) : null,
+    maxScore: poolRows.length ? Number(poolRows[0].max_score) : null,
+    poolTotal: poolRows.length,
+    // newest qualifiers first so fresh names appear at the top of the booth screen
+    pool: poolRows.slice().reverse().slice(0, POOL_NAME_LIMIT).map((r) => ({
+      attemptId: r.attempt_id, name: r.display_name, university: r.university, department: r.department,
+    })),
     // deno-lint-ignore no-explicit-any
-    entries: (rows ?? []).map((r: any) => ({
-      rank: Number(r.rank), attemptId: r.attempt_id, name: r.display_name, university: r.university,
-      department: r.department, score: Number(r.score), maxScore: Number(r.max_score),
-      correct: r.correct_count, durationMs: r.duration_ms, submittedAt: r.submitted_at,
+    winners: ((winners ?? []) as any[]).map((w) => ({
+      position: Number(w.position), attemptId: w.attempt_id, name: w.display_name,
+      university: w.university, department: w.department, drawnAt: w.drawn_at,
     })),
     stats: { participants: participants ?? 0, completed: completed ?? 0 },
     activeDay: settings.active_day,

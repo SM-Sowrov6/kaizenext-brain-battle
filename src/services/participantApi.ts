@@ -57,5 +57,5 @@ export const supabaseParticipantApi: ParticipantApi = {
   submit: (token, attemptId, answers, reason) =>
     call('submit', { token, attemptId, answers, reason }, { retries: 2, timeoutMs: 15_000 }),
   result: (token) => call('result', { token }, { retries: 2 }),
-  leaderboard: (day, limit = 10) => call('leaderboard', { day, limit }, { retries: 1, timeoutMs: 10_000 }),
+  leaderboard: (day) => call('leaderboard', { day }, { retries: 1, timeoutMs: 10_000 }),
 }

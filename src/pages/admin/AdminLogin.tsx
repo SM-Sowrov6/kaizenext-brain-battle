@@ -6,7 +6,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { useTitle } from '@/hooks/misc'
 import { errorMessage } from '@/services'
 import { env } from '@/lib/env'
-import { Wordmark } from '@/components/ui/Brand'
+import { KaizenextLogo, Wordmark } from '@/components/ui/Brand'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Alert, PageLoader } from '@/components/ui/Feedback'
@@ -75,6 +75,7 @@ export default function AdminLogin() {
             </form>
           </Card>
           <p className="mt-5 text-center text-xs text-faint">Access is limited to accounts listed in <code className="font-mono">admin_users</code>.</p>
+          <KaizenextLogo className="mx-auto mt-10 h-7" />
         </motion.div>
       </main>
     </div>

@@ -42,6 +42,23 @@ export function Wordmark({ className, to = '/', compact }: { className?: string;
   )
 }
 
+/**
+ * Official Kaizenext logo (white "Kaizen" + orange "ext", from the job-fair brand pack).
+ * Brand rules: never recolour it; place it directly on the dark surface; keep clear space around it.
+ */
+export function KaizenextLogo({ className, href }: { className?: string; href?: string }) {
+  const img = (
+    <img src="/brand/kaizenext-logo.svg" alt="Kaizenext" width={800} height={306} className={cn('block h-8 w-auto select-none', className)} draggable={false} />
+  )
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" aria-label="Kaizenext website" className="inline-block transition-opacity hover:opacity-90">
+      {img}
+    </a>
+  ) : (
+    img
+  )
+}
+
 export function LinkedInIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={cn('size-4', className)} aria-hidden>

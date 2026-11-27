@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { ArrowUpRight, Mail, Trophy } from 'lucide-react'
+import { ArrowUpRight, Mail, Ticket } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { FacebookIcon, KAIZENEXT_LINKS, LinkedInIcon, Wordmark } from '@/components/ui/Brand'
+import { FacebookIcon, KaizenextLogo, KAIZENEXT_LINKS, LinkedInIcon, Wordmark } from '@/components/ui/Brand'
 
 /** Ambient lighting behind every public page. Pure CSS, GPU-cheap. */
 export function AmbientBackground({ intensity = 1 }: { intensity?: number }) {
@@ -58,7 +58,7 @@ function Header({ minimal }: { minimal?: boolean }) {
               )
             }
           >
-            <Trophy className="size-4" /> Leaderboard
+            <Ticket className="size-4" /> Lucky draw
           </NavLink>
         </nav>
       </div>
@@ -71,9 +71,9 @@ export function Footer() {
     <footer className="relative mt-24 border-t border-line">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
-          <Wordmark />
+          <KaizenextLogo href={KAIZENEXT_LINKS.website} className="h-10" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
-            Think Fast. Play Smart. Win Big. A live quiz challenge by Kaizenext — an AI technology startup from Dhaka.
+            Brain Battle — Think Fast. Play Smart. Win Big. A live quiz challenge by Kaizenext, an AI technology startup from Dhaka.
           </p>
           <div className="mt-5 flex gap-2">
             {[
@@ -101,7 +101,7 @@ export function Footer() {
         </FooterCol>
         <FooterCol title="Brain Battle">
           <FooterLink to="/register">Start your challenge</FooterLink>
-          <FooterLink to="/leaderboard">Live leaderboard</FooterLink>
+          <FooterLink to="/leaderboard">Lucky draw board</FooterLink>
           <FooterLink href="/#how">How it works</FooterLink>
         </FooterCol>
       </div>

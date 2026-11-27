@@ -1,9 +1,10 @@
 import { getSupabase } from '@/lib/supabase'
 import type {
+  DrawWinner,
   AdminAttemptSummary, AdminParticipant, AdminQuestion, AdminStats, EventSettings, QuizSettings,
 } from '@/types'
 import { AppError } from './errors'
-import type { AdminApi, AdminUser } from './types'
+import type { AdminApi, AdminPoolEntry, AdminUser } from './types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>
@@ -50,6 +51,11 @@ const mapQuiz = (r: Row): QuizSettings => ({
 })
 
 const num = (v: any) => (v == null ? null : Number(v))
+
+const mapWinner = (w: Row): DrawWinner => ({
+  id: w.id, position: Number(w.position), attemptId: w.attempt_id, name: w.display_name,
+  university: w.university, department: w.department, drawnAt: w.drawn_at,
+})
 
 const mapAttempt = (a: Row | null | undefined): AdminAttemptSummary | null =>
   a
@@ -262,6 +268,43 @@ export const supabaseAdminApi: AdminApi = {
 
   async setDisqualified(attemptId, value) {
     const { error } = await getSupabase().from('attempts').update({ disqualified: value }).eq('id', attemptId)
+    if (error) fail(error)
+  },
+
+  async getDrawPool(day) {
+    const sb = getSupabase()
+    const { data, error } = await sb.rpc('get_draw_pool', { p_day: day })
+    if (error) fail(error)
+    const rows = (data ?? []) as Row[]
+    if (!rows.length) return []
+    // contact details for winners (admin-only via RLS)
+    const { data: contacts, error: ce } = await sb
+      .from('attempts').select('id, participants(email, phone)').in('id', rows.map((r) => r.attempt_id))
+    if (ce) fail(ce)
+    const byId = new Map((contacts ?? []).map((c: Row) => [c.id, Array.isArray(c.participants) ? c.participants[0] : c.participants]))
+    return rows.map((r): AdminPoolEntry => ({
+      attemptId: r.attempt_id, name: r.display_name, email: byId.get(r.attempt_id)?.email ?? '',
+      phone: byId.get(r.attempt_id)?.phone ?? null, university: r.university, department: r.department,
+      score: Number(r.score), maxScore: Number(r.max_score), submittedAt: r.submitted_at,
+    }))
+  },
+
+  async getDrawWinners(day) {
+    const { data, error } = await getSupabase().rpc('get_draw_winners', { p_day: day })
+    if (error) fail(error)
+    return ((data ?? []) as Row[]).map(mapWinner)
+  },
+
+  async drawWinner(day, position) {
+    const { data, error } = await getSupabase().rpc('admin_draw_winner', { p_day: day, p_position: position })
+    if (error) fail(error)
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row) throw new AppError('DRAW_FAILED', 'The draw did not return a winner.')
+    return mapWinner(row)
+  },
+
+  async voidWinner(id) {
+    const { error } = await getSupabase().rpc('admin_void_winner', { p_id: id })
     if (error) fail(error)
   },
 

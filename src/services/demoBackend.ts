@@ -8,11 +8,11 @@
  * ─────────────────────────────────────────────────────────────────
  */
 import type {
-  AdminParticipant, AdminQuestion, AttemptResult, EventDay, EventSettings, LeaderboardEntry,
+  AdminParticipant, AdminQuestion, AttemptResult, DrawWinner, EventDay, EventSettings, PoolEntry,
   PublicConfig, QuizSettings, SubmitReason,
 } from '@/types'
 import { AppError } from './errors'
-import type { AdminApi, AnswerMap, ParticipantApi } from './types'
+import type { AdminApi, AdminPoolEntry, AnswerMap, ParticipantApi } from './types'
 
 const DB_KEY = 'kbb.demo.db.v1'
 const ADMIN_KEY = 'kbb.demo.admin'
@@ -30,7 +30,8 @@ interface DemoAttempt {
   flagged: boolean; flagReasons: string[]; disqualified: boolean
   answers: Record<string, { optionId: string; answeredAt: string; isCorrect?: boolean }>
 }
-interface DemoDB { settings: EventSettings; quiz: QuizSettings; questions: DemoQuestion[]; participants: DemoParticipant[]; attempts: DemoAttempt[] }
+interface DemoWinner { id: string; day: EventDay; position: number; attemptId: string; drawnAt: string; voidedAt: string | null }
+interface DemoDB { settings: EventSettings; quiz: QuizSettings; questions: DemoQuestion[]; participants: DemoParticipant[]; attempts: DemoAttempt[]; winners: DemoWinner[] }
 
 const uid = () => crypto.randomUUID()
 const delay = (ms = 120 + Math.random() * 220) => new Promise((r) => setTimeout(r, ms))
@@ -76,7 +77,7 @@ function seed(): DemoDB {
     options: opts.map((text, p) => ({ id: uid(), position: p, text, isCorrect: p === c })),
   }))
   const db: DemoDB = {
-    quiz, questions, participants: [], attempts: [],
+    quiz, questions, participants: [], attempts: [], winners: [],
     settings: {
       eventName: 'DIU Job Utsob 2026', venue: 'Daffodil International University',
       day1Date: '2026-11-28', day2Date: '2026-11-29', activeDay: 1, quizEnabled: true, registrationEnabled: true,
@@ -85,14 +86,14 @@ function seed(): DemoDB {
         'One attempt per participant. Your email can only be used once.',
         'The timer starts as soon as you press Start Quiz and cannot be paused.',
         'Your quiz is submitted automatically when the timer reaches zero.',
-        'Ties are broken by completion time, then by earliest submission.',
+        'Everyone with the highest score of the day enters a lucky draw. Winners are picked at random at the Kaizenext booth.',
         'Use of other people, devices or AI tools during the quiz leads to disqualification.',
         'Winners must show their registered email at the Kaizenext booth to claim prizes.',
       ],
       prizes: [
-        { place: 'Champion', title: 'Grand Prize', description: 'Top scorer of each day. Prize revealed at the Kaizenext booth.' },
-        { place: '2nd Place', title: 'Runner-up Prize', description: 'Second highest score of each day.' },
-        { place: '3rd Place', title: 'Third Place Prize', description: 'Third highest score of each day.' },
+        { place: 'Champion', title: 'Grand Prize', description: "Drawn at random from the day's top scorers. Prize revealed at the Kaizenext booth." },
+        { place: '2nd Place', title: 'Runner-up Prize', description: "Second name drawn from the day's top scorers." },
+        { place: '3rd Place', title: 'Third Place Prize', description: "Third name drawn from the day's top scorers." },
       ],
     },
   }
@@ -138,7 +139,11 @@ function shuffle<T>(arr: readonly T[]): T[] {
 function load(): DemoDB {
   try {
     const raw = localStorage.getItem(DB_KEY)
-    if (raw) return JSON.parse(raw) as DemoDB
+    if (raw) {
+      const db = JSON.parse(raw) as DemoDB
+      db.winners ??= []
+      return db
+    }
   } catch { /* reseed */ }
   const db = seed()
   save(db)
@@ -253,16 +258,44 @@ function applyAnswers(a: DemoAttempt, answers: AnswerMap) {
   }
 }
 
+/** Everyone tied on the day's highest score, oldest qualifier first (mirrors get_draw_pool). */
+function drawPool(db: DemoDB, day: EventDay) {
+  const done = ranked(db, day)
+  if (!done.length) return []
+  const top = Math.max(...done.map((a) => a.score!))
+  return done.filter((a) => a.score === top).sort((x, y) => x.submittedAt!.localeCompare(y.submittedAt!))
+}
+
+function activeWinners(db: DemoDB, day: EventDay): DrawWinner[] {
+  return db.winners
+    .filter((w) => w.day === day && !w.voidedAt)
+    .sort((x, y) => x.position - y.position)
+    .flatMap((w) => {
+      const a = db.attempts.find((x) => x.id === w.attemptId)
+      const p = a && db.participants.find((x) => x.id === a.participantId)
+      return p ? [{ id: w.id, position: w.position, attemptId: w.attemptId, name: p.fullName, university: p.university, department: p.department, drawnAt: w.drawnAt }] : []
+    })
+}
+
+function toPoolEntry(db: DemoDB, a: DemoAttempt): PoolEntry {
+  const p = db.participants.find((x) => x.id === a.participantId)!
+  return { attemptId: a.id, name: p.fullName, university: p.university, department: p.department }
+}
+
 function result(db: DemoDB, a: DemoAttempt): AttemptResult {
   const p = db.participants.find((x) => x.id === a.participantId)!
-  const dayPool = ranked(db, a.eventDay)
-  const allPool = ranked(db, null)
-  const rankIn = (pool: DemoAttempt[]) => pool.filter((x) => better(x, a) > 0).length + 1
+  const pool = drawPool(db, a.eventDay)
+  const won = activeWinners(db, a.eventDay).find((w) => w.attemptId === a.id)
   return {
     attemptId: a.id, fullName: p.fullName, score: a.score!, maxScore: a.maxScore!, correct: a.correct!,
     incorrect: a.incorrect!, unanswered: a.unanswered!, totalQuestions: a.questionIds.length, durationMs: a.durationMs!,
     submittedAt: a.submittedAt!, eventDay: a.eventDay, submitReason: a.submitReason!,
-    rankDay: rankIn(dayPool), finishersDay: dayPool.length, rankOverall: rankIn(allPool), finishersOverall: allPool.length,
+    draw: {
+      inPool: pool.some((x) => x.id === a.id),
+      topScore: pool.length ? pool[0].score : null,
+      poolSize: pool.length,
+      wonPosition: won ? won.position : null,
+    },
   }
 }
 
@@ -386,24 +419,25 @@ export const demoParticipantApi: ParticipantApi = {
     return result(db, a)
   },
 
-  async leaderboard(day, limit = 10) {
+  async leaderboard(day) {
     await delay(100)
     const db = load()
     sweepExpired(db)
-    const d = day === 'all' ? null : day
-    const entries: LeaderboardEntry[] = ranked(db, d).slice(0, limit).map((a, i) => {
-      const p = db.participants.find((x) => x.id === a.participantId)!
-      return {
-        rank: i + 1, attemptId: a.id, name: p.fullName, university: p.university, department: p.department,
-        score: a.score!, maxScore: a.maxScore!, correct: a.correct!, durationMs: a.durationMs!, submittedAt: a.submittedAt!,
-      }
-    })
+    const d: EventDay = day ?? db.settings.activeDay
+    const pool = drawPool(db, d)
     return {
-      scope: day, entries, activeDay: db.settings.activeDay, updatedAt: new Date().toISOString(),
+      day: d,
+      topScore: pool.length ? pool[0].score : null,
+      maxScore: pool.length ? pool[0].maxScore : null,
+      poolTotal: pool.length,
+      pool: pool.slice().reverse().slice(0, 120).map((a) => toPoolEntry(db, a)),
+      winners: activeWinners(db, d),
       stats: {
-        participants: db.participants.filter((p) => d == null || p.eventDay === d).length,
+        participants: db.participants.filter((p) => p.eventDay === d).length,
         completed: ranked(db, d).length,
       },
+      activeDay: db.settings.activeDay,
+      updatedAt: new Date().toISOString(),
     }
   },
 }
@@ -527,20 +561,57 @@ export const demoAdminApi: AdminApi = {
   async deleteParticipant(id) {
     requireDemoAdmin(); await delay()
     const db = load()
+    const gone = new Set(db.attempts.filter((a) => a.participantId === id).map((a) => a.id))
     db.participants = db.participants.filter((p) => p.id !== id)
     db.attempts = db.attempts.filter((a) => a.participantId !== id)
+    db.winners = db.winners.filter((w) => !gone.has(w.attemptId))
     save(db)
   },
   async setDisqualified(attemptId, value) {
     requireDemoAdmin(); await delay(80)
     const db = load(); const a = db.attempts.find((x) => x.id === attemptId); if (a) a.disqualified = value; save(db)
   },
+  async getDrawPool(day) {
+    requireDemoAdmin(); await delay(100)
+    const db = load(); sweepExpired(db)
+    return drawPool(db, day).map((a): AdminPoolEntry => {
+      const p = db.participants.find((x) => x.id === a.participantId)!
+      return { attemptId: a.id, name: p.fullName, email: p.email, phone: p.phone, university: p.university,
+        department: p.department, score: a.score!, maxScore: a.maxScore!, submittedAt: a.submittedAt! }
+    })
+  },
+  async getDrawWinners(day) {
+    requireDemoAdmin(); await delay(80)
+    return activeWinners(load(), day)
+  },
+  async drawWinner(day, position) {
+    requireDemoAdmin(); await delay(250)
+    const db = load()
+    if (db.winners.some((w) => w.day === day && w.position === position && !w.voidedAt)) {
+      throw new AppError('DRAW', 'This prize has already been drawn. Void it first to redraw.')
+    }
+    const taken = new Set(db.winners.filter((w) => !w.voidedAt).map((w) => w.attemptId))
+    const candidates = drawPool(db, day).filter((a) => !taken.has(a.id))
+    if (!candidates.length) throw new AppError('DRAW', 'No eligible participants left in the pool.')
+    const pick = candidates[crypto.getRandomValues(new Uint32Array(1))[0] % candidates.length]
+    const w: DemoWinner = { id: uid(), day, position, attemptId: pick.id, drawnAt: new Date().toISOString(), voidedAt: null }
+    db.winners.push(w)
+    save(db)
+    return activeWinners(db, day).find((x) => x.id === w.id)!
+  },
+  async voidWinner(id) {
+    requireDemoAdmin(); await delay(120)
+    const db = load()
+    const w = db.winners.find((x) => x.id === id && !x.voidedAt)
+    if (w) w.voidedAt = new Date().toISOString()
+    save(db)
+  },
   async resetData(confirm) {
     requireDemoAdmin(); await delay(300)
     if (confirm !== 'RESET') throw new AppError('VALIDATION', 'Confirmation text mismatch')
     const db = load()
     const n = db.participants.length
-    db.participants = []; db.attempts = []
+    db.participants = []; db.attempts = []; db.winners = []
     db.questions = db.questions.filter((q) => !q.archived)
     save(db)
     return n

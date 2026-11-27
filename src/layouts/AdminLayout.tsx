@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router'
-import { ExternalLink, FileQuestion, LayoutDashboard, LogOut, QrCode, Settings, Trophy, Users } from 'lucide-react'
+import { ExternalLink, FileQuestion, LayoutDashboard, LogOut, QrCode, Settings, Ticket, Trophy, Users } from 'lucide-react'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { cn } from '@/lib/cn'
 import { Wordmark } from '@/components/ui/Brand'
@@ -9,7 +9,8 @@ const NAV = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/questions', label: 'Questions', icon: FileQuestion },
   { to: '/admin/participants', label: 'Participants', icon: Users },
-  { to: '/admin/leaderboard', label: 'Leaderboard', icon: Trophy },
+  { to: '/admin/draw', label: 'Lucky draw', icon: Ticket },
+  { to: '/admin/leaderboard', label: 'Results', icon: Trophy },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
   { to: '/admin/qr', label: 'QR code', icon: QrCode },
 ]

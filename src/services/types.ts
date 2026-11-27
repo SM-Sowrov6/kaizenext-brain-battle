@@ -1,6 +1,6 @@
 import type {
-  AdminParticipant, AdminQuestion, AdminStats, AttemptAnswerDetail, AttemptResult, DayScope,
-  EventSettings, LeaderboardResponse, ParticipantSession, PublicConfig, QuestionDraft, QuizSettings,
+  AdminParticipant, AdminQuestion, AdminStats, AttemptAnswerDetail, AttemptResult, BoardResponse,
+  DrawWinner, EventDay, EventSettings, ParticipantSession, PublicConfig, QuestionDraft, QuizSettings,
   RegistrationInput, SessionInfo, StartResponse, SubmitReason,
 } from '@/types'
 
@@ -14,12 +14,26 @@ export interface ParticipantApi {
   save(token: string, attemptId: string, answers: AnswerMap): Promise<{ serverNow: string }>
   submit(token: string, attemptId: string, answers: AnswerMap, reason: SubmitReason): Promise<AttemptResult>
   result(token: string): Promise<AttemptResult>
-  leaderboard(day: DayScope, limit?: number): Promise<LeaderboardResponse>
+  /** Booth board for a day (defaults to the active day): draw pool + winners, no ranks. */
+  leaderboard(day?: EventDay): Promise<BoardResponse>
 }
 
 export interface AdminUser {
   id: string
   email: string
+}
+
+/** Admin view of a pool entry — includes contact details for prize winners. */
+export interface AdminPoolEntry {
+  attemptId: string
+  name: string
+  email: string
+  phone: string | null
+  university: string
+  department: string
+  score: number
+  maxScore: number
+  submittedAt: string
 }
 
 export interface AdminApi {
@@ -40,4 +54,10 @@ export interface AdminApi {
   deleteParticipant(id: string): Promise<void>
   setDisqualified(attemptId: string, value: boolean): Promise<void>
   resetData(confirm: string): Promise<number>
+  getDrawPool(day: EventDay): Promise<AdminPoolEntry[]>
+  getDrawWinners(day: EventDay): Promise<DrawWinner[]>
+  /** Server picks a random winner for the prize position from the current pool. */
+  drawWinner(day: EventDay, position: number): Promise<DrawWinner>
+  /** Marks a winner as voided (kept for audit) so the position can be redrawn. */
+  voidWinner(id: string): Promise<void>
 }

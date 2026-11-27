@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Crown, Timer, Zap } from 'lucide-react'
+import { Check, Ticket, Timer, Trophy } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 // A decorative, self-playing quiz card. The question is illustrative only
@@ -132,11 +132,11 @@ export function HeroVisual() {
         className="glass absolute -left-3 top-10 hidden animate-float items-center gap-2.5 rounded-2xl border border-line-strong px-3.5 py-2.5 shadow-2xl sm:-left-10 sm:flex"
       >
         <span className="grid size-8 place-items-center rounded-xl bg-warning/15 text-warning">
-          <Crown className="size-4" />
+          <Trophy className="size-4" />
         </span>
         <div className="leading-tight">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-faint">Rank</p>
-          <p className="text-sm font-bold text-fg">#1 today</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-faint">Top score</p>
+          <p className="text-sm font-bold text-fg">10 / 10</p>
         </div>
       </motion.div>
 
@@ -147,11 +147,11 @@ export function HeroVisual() {
         className="glass absolute -right-2 bottom-24 hidden items-center gap-2.5 rounded-2xl border border-line-strong px-3.5 py-2.5 shadow-2xl [animation-delay:1.5s] animate-float sm:-right-8 sm:flex"
       >
         <span className="grid size-8 place-items-center rounded-xl bg-accent/15 text-accent">
-          <Zap className="size-4" />
+          <Ticket className="size-4" />
         </span>
         <div className="leading-tight">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-faint">Speed bonus</p>
-          <p className="text-sm font-bold text-fg">Ties → fastest wins</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-faint">Lucky draw</p>
+          <p className="text-sm font-bold text-fg">Top scorers win prizes</p>
         </div>
       </motion.div>
 

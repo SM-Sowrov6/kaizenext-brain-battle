@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
   ArrowRight, Award, BadgeCheck, Brain, CalendarDays, Clock3, Gift, ListChecks, Medal, MinusCircle,
-  QrCode, ShieldCheck, Sparkles, Target, Trophy, UserPlus,
+  QrCode, ShieldCheck, Sparkles, Target, Ticket, Trophy, UserPlus,
 } from 'lucide-react'
 import { useConfig } from '@/hooks/useConfig'
 import { useSession } from '@/hooks/useSession'
@@ -13,6 +13,7 @@ import { LinkButton } from '@/components/ui/Button'
 import { Badge, Card, LiveDot, SectionEyebrow } from '@/components/ui/Card'
 import { Alert, Skeleton } from '@/components/ui/Feedback'
 import { HeroVisual } from '@/components/landing/HeroVisual'
+import { KaizenextLogo, KAIZENEXT_LINKS } from '@/components/ui/Brand'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -66,7 +67,7 @@ export default function LandingPage() {
 
           <motion.p variants={fadeUp} initial="hidden" animate="show" custom={2} className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg lg:mx-0">
             Scan, register in 30 seconds, and race the clock through a quick-fire quiz on tech, AI and careers.
-            Top the live leaderboard at the Kaizenext booth and walk away with a prize.
+            Hit the day's top score to enter the lucky draw at the Kaizenext booth and win a prize.
           </motion.p>
 
           <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -79,8 +80,8 @@ export default function LandingPage() {
                 Registration is closed right now — check back soon.
               </div>
             )}
-            <LinkButton to="/leaderboard" variant="secondary" size="xl" icon={<Trophy className="size-5" />} className="w-full px-5 text-base sm:w-auto sm:px-8 sm:text-lg">
-              Leaderboard
+            <LinkButton to="/leaderboard" variant="secondary" size="xl" icon={<Ticket className="size-5" />} className="w-full px-5 text-base sm:w-auto sm:px-8 sm:text-lg">
+              Lucky draw
             </LinkButton>
           </motion.div>
 
@@ -97,6 +98,10 @@ export default function LandingPage() {
               </div>
             ))}
           </motion.dl>
+          <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5} className="mt-8 flex items-center justify-center gap-3 lg:justify-start">
+            <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Presented by</span>
+            <KaizenextLogo href={KAIZENEXT_LINKS.website} className="h-8" />
+          </motion.div>
           {error && !config && (
             <Alert tone="warning" className="mx-auto mt-6 max-w-md text-left lg:mx-0" action={<button onClick={() => void reload()} className="text-sm font-semibold text-accent">Retry</button>}>
               {error}
@@ -139,7 +144,7 @@ export default function LandingPage() {
             { icon: <QrCode />, title: 'Scan the QR', text: 'Point your camera at the code at the Kaizenext booth.' },
             { icon: <UserPlus />, title: 'Register fast', text: 'Name, email, university, department. That\'s it.' },
             { icon: <Brain />, title: 'Beat the clock', text: `${quiz?.questionCount ?? 10} questions. One shot. Every second counts.` },
-            { icon: <Trophy />, title: 'Climb the board', text: 'See your rank instantly on your phone and the booth screen.' },
+            { icon: <Ticket />, title: 'Enter the draw', text: "Everyone with the day's top score goes into a lucky draw for prizes." },
           ].map((s, i) => (
             <Reveal key={s.title} i={i}>
               <Card className="group relative h-full overflow-hidden p-6 transition-[transform,border-color] duration-300 hover:-translate-y-1 hover:border-line-strong">
@@ -208,7 +213,7 @@ export default function LandingPage() {
               </div>
               <p className="mt-5 flex items-start gap-2 text-xs leading-relaxed text-faint">
                 <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
-                Answers are checked and scored on our servers. Leaderboards show names only — never emails or phone numbers.
+                Answers are checked and scored on our servers. The booth screen shows names only — never emails, phone numbers or ranks.
               </p>
             </Card>
           </Reveal>
@@ -254,14 +259,14 @@ export default function LandingPage() {
               <h2 className="font-headline text-3xl text-fg sm:text-5xl">
                 Ready to <span className="font-flair text-gradient">battle?</span>
               </h2>
-              <p className="mx-auto mt-4 max-w-md text-muted">One attempt. {quiz ? formatScore(quiz.durationSeconds / 60) : 5} minutes. Your name on the big screen.</p>
+              <p className="mx-auto mt-4 max-w-md text-muted">One attempt. {quiz ? formatScore(quiz.durationSeconds / 60) : 5} minutes. Top scorers enter the lucky draw.</p>
               <div className="mt-8 flex justify-center">
                 {canJoin || loading ? (
                   <LinkButton to={cta.to} size="xl" className="px-6 text-base sm:px-8 sm:text-lg" iconRight={<ArrowRight className="size-5 transition-transform group-hover/btn:translate-x-1" />}>
                     {cta.label}
                   </LinkButton>
                 ) : (
-                  <LinkButton to="/leaderboard" size="xl" variant="secondary" icon={<Trophy className="size-5" />}>View leaderboard</LinkButton>
+                  <LinkButton to="/leaderboard" size="xl" variant="secondary" icon={<Ticket className="size-5" />}>See the lucky draw</LinkButton>
                 )}
               </div>
             </div>

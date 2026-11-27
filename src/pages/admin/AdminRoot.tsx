@@ -11,6 +11,7 @@ const Participants = lazy(() => import('./AdminParticipants'))
 const Leaderboard = lazy(() => import('./AdminLeaderboard'))
 const Settings = lazy(() => import('./AdminSettings'))
 const QrPage = lazy(() => import('./AdminQr'))
+const Draw = lazy(() => import('./AdminDraw'))
 
 function Guard() {
   const { user, checking } = useAdminAuth()
@@ -35,6 +36,7 @@ export default function AdminRoot() {
             <Route index element={<Dashboard />} />
             <Route path="questions" element={<Questions />} />
             <Route path="participants" element={<Participants />} />
+            <Route path="draw" element={<Draw />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="settings" element={<Settings />} />
             <Route path="qr" element={<QrPage />} />

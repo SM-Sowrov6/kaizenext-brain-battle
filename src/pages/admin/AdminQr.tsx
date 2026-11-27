@@ -26,7 +26,7 @@ export default function AdminQr() {
     downloadFile('brain-battle-qr.svg', new Blob([s], { type: 'image/svg+xml' }))
   }
 
-  const displayUrl = `${url.replace(/\/$/, '')}/leaderboard?rotate=1`
+  const displayUrl = `${url.replace(/\/$/, '')}/leaderboard`
 
   return (
     <>
@@ -52,7 +52,7 @@ export default function AdminQr() {
           </Card>
           <Card className="p-6">
             <h2 className="flex items-center gap-2 font-semibold text-fg"><Monitor className="size-4.5 text-accent" /> Booth display link</h2>
-            <p className="mt-1 text-sm text-muted">Open on the big screen and press the full-screen button. <code className="font-mono text-fg">rotate=1</code> alternates Today ↔ Overall every 20 s.</p>
+            <p className="mt-1 text-sm text-muted">Open on the big screen and press the full-screen button. It shows today's lucky-draw pool and winners, updating every few seconds.</p>
             <div className="mt-4 flex gap-2">
               <Input readOnly value={displayUrl} className="h-11 font-mono text-xs" />
               <Button variant="secondary" icon={<Copy className="size-4" />} onClick={() => { void navigator.clipboard?.writeText(displayUrl); toast('Link copied') }}>Copy</Button>

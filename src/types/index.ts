@@ -88,31 +88,42 @@ export interface AttemptResult {
   durationMs: number
   submittedAt: string
   eventDay: EventDay
-  rankDay: number
-  rankOverall: number
-  finishersDay: number
-  finishersOverall: number
   submitReason: SubmitReason
+  /** Lucky-draw status for the participant's own day (no public ranks). */
+  draw: {
+    inPool: boolean
+    /** Current highest score of the day (null when nobody has finished). */
+    topScore: number | null
+    poolSize: number
+    /** Prize position if this participant has already been drawn as a winner. */
+    wonPosition: number | null
+  }
 }
 
 export type SubmitReason = 'manual' | 'timeout' | 'expired'
 
-export interface LeaderboardEntry {
-  rank: number
+/** A name in the day's lucky-draw pool (everyone tied on the highest score). Names only. */
+export interface PoolEntry {
   attemptId: string
   name: string
   university: string
   department: string
-  score: number
-  maxScore: number
-  correct: number
-  durationMs: number
-  submittedAt: string
 }
 
-export interface LeaderboardResponse {
-  scope: DayScope
-  entries: LeaderboardEntry[]
+export interface DrawWinner extends PoolEntry {
+  id?: string
+  position: number
+  drawnAt: string
+}
+
+/** Public booth board: draw pool + drawn winners. Deliberately no ranks, times or per-person scores. */
+export interface BoardResponse {
+  day: EventDay
+  topScore: number | null
+  maxScore: number | null
+  poolTotal: number
+  pool: PoolEntry[]
+  winners: DrawWinner[]
   stats: { participants: number; completed: number }
   activeDay: EventDay
   updatedAt: string

@@ -354,18 +354,21 @@ export default function QuizPage() {
 
           {/* Nav buttons */}
           <div className="sticky bottom-0 z-20 -mx-4 mt-5 border-t border-line bg-bg/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-lg sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button variant="secondary" size="lg" onClick={() => go(index - 1)} disabled={index === 0} icon={<ArrowLeft className="size-4.5" />} aria-label="Previous question">
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <Button variant="secondary" size="lg" className="w-13 shrink-0 px-0 sm:w-auto sm:px-6" onClick={() => go(index - 1)} disabled={index === 0} icon={<ArrowLeft className="size-4.5" />} aria-label="Previous question">
                 <span className="hidden sm:inline">Previous</span>
               </Button>
-              <Button variant="ghost" size="lg" className="lg:hidden" onClick={() => setNavOpen(true)} icon={<LayoutGrid className="size-4.5" />}>
+              <Button variant="ghost" size="lg" className="shrink-0 px-2.5 sm:px-6 lg:hidden" onClick={() => setNavOpen(true)} icon={<LayoutGrid className="size-4.5" />} aria-label={`Questions: ${answeredCount} of ${questions.length} answered`}>
                 {answeredCount}/{questions.length}
               </Button>
               <div className="flex-1" />
               {last ? (
-                <Button size="lg" onClick={() => setConfirmOpen(true)} icon={<Send className="size-4.5" />}>Review & submit</Button>
+                <Button size="lg" className="shrink-0 px-4 sm:px-6" onClick={() => setConfirmOpen(true)} icon={<Send className="size-4.5" />}>
+                  <span className="sm:hidden">Submit</span>
+                  <span className="hidden sm:inline">Review & submit</span>
+                </Button>
               ) : (
-                <Button size="lg" onClick={() => go(index + 1)} iconRight={<ArrowRight className="size-4.5" />}>Next</Button>
+                <Button size="lg" className="shrink-0 px-4 sm:px-6" onClick={() => go(index + 1)} iconRight={<ArrowRight className="size-4.5" />}>Next</Button>
               )}
             </div>
           </div>

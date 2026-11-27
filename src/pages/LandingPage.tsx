@@ -71,7 +71,7 @@ export default function LandingPage() {
 
           <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
             {canJoin || loading ? (
-              <LinkButton to={cta.to} size="xl" iconRight={<ArrowRight className="size-5 transition-transform group-hover/btn:translate-x-1" />} className="w-full sm:w-auto">
+              <LinkButton to={cta.to} size="xl" iconRight={<ArrowRight className="size-5 transition-transform group-hover/btn:translate-x-1" />} className="w-full px-5 text-base sm:w-auto sm:px-8 sm:text-lg">
                 {cta.label}
               </LinkButton>
             ) : (
@@ -79,7 +79,7 @@ export default function LandingPage() {
                 Registration is closed right now — check back soon.
               </div>
             )}
-            <LinkButton to="/leaderboard" variant="secondary" size="xl" icon={<Trophy className="size-5" />} className="w-full sm:w-auto">
+            <LinkButton to="/leaderboard" variant="secondary" size="xl" icon={<Trophy className="size-5" />} className="w-full px-5 text-base sm:w-auto sm:px-8 sm:text-lg">
               Leaderboard
             </LinkButton>
           </motion.div>
@@ -246,7 +246,7 @@ export default function LandingPage() {
       {/* ── Final CTA ──────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-4 sm:px-6">
         <Reveal>
-          <div className="relative overflow-hidden rounded-[2rem] border border-line-strong p-10 text-center sm:p-16">
+          <div className="relative overflow-hidden rounded-[2rem] border border-line-strong px-5 py-10 text-center sm:p-16">
             <div className="absolute inset-0 bg-gradient-accent opacity-[0.12]" />
             <div className="bg-grid mask-fade-b absolute inset-0 opacity-70" />
             <div className="absolute -bottom-24 left-1/2 h-48 w-[70%] -translate-x-1/2 rounded-full bg-accent/30 blur-3xl" />
@@ -257,7 +257,7 @@ export default function LandingPage() {
               <p className="mx-auto mt-4 max-w-md text-muted">One attempt. {quiz ? formatScore(quiz.durationSeconds / 60) : 5} minutes. Your name on the big screen.</p>
               <div className="mt-8 flex justify-center">
                 {canJoin || loading ? (
-                  <LinkButton to={cta.to} size="xl" iconRight={<ArrowRight className="size-5 transition-transform group-hover/btn:translate-x-1" />}>
+                  <LinkButton to={cta.to} size="xl" className="px-6 text-base sm:px-8 sm:text-lg" iconRight={<ArrowRight className="size-5 transition-transform group-hover/btn:translate-x-1" />}>
                     {cta.label}
                   </LinkButton>
                 ) : (

@@ -48,6 +48,7 @@ const mapQuiz = (r: Row): QuizSettings => ({
   id: r.id, title: r.title, durationSeconds: r.duration_seconds, questionCount: r.question_count,
   marksPerQuestion: Number(r.marks_per_question), negativeMarking: r.negative_marking,
   negativeMark: Number(r.negative_mark), shuffleQuestions: r.shuffle_questions, shuffleOptions: r.shuffle_options,
+  maxViolations: r.max_violations ?? 2,
 })
 
 const num = (v: any) => (v == null ? null : Number(v))
@@ -143,6 +144,7 @@ export const supabaseAdminApi: AdminApi = {
     if (patch.negativeMark !== undefined) row.negative_mark = patch.negativeMark
     if (patch.shuffleQuestions !== undefined) row.shuffle_questions = patch.shuffleQuestions
     if (patch.shuffleOptions !== undefined) row.shuffle_options = patch.shuffleOptions
+    if (patch.maxViolations !== undefined) row.max_violations = patch.maxViolations
     const { data, error } = await getSupabase().from('quizzes').update(row).eq('id', id).select('*').single()
     if (error) fail(error)
     return mapQuiz(data)

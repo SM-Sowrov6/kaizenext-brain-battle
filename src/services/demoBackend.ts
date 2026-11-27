@@ -28,6 +28,7 @@ interface DemoAttempt {
   durationMs: number | null; score: number | null; maxScore: number | null
   correct: number | null; incorrect: number | null; unanswered: number | null
   flagged: boolean; flagReasons: string[]; disqualified: boolean
+  violationCount?: number; violations?: { id: string; kind: string; at: string }[]; lastViolationAt?: string | null
   answers: Record<string, { optionId: string; answeredAt: string; isCorrect?: boolean }>
 }
 interface DemoWinner { id: string; day: EventDay; position: number; attemptId: string; drawnAt: string; voidedAt: string | null }
@@ -70,6 +71,7 @@ function seed(): DemoDB {
   const quiz: QuizSettings = {
     id: uid(), title: 'Brain Battle', durationSeconds: 300, questionCount: 10, marksPerQuestion: 1,
     negativeMarking: false, negativeMark: 0.25, shuffleQuestions: true, shuffleOptions: true,
+    maxViolations: 2,
   }
   const questions: DemoQuestion[] = SAMPLE.map(([prompt, opts, c], i) => ({
     id: uid(), prompt, marks: 1, isActive: true, position: i, archived: false,
@@ -142,6 +144,7 @@ function load(): DemoDB {
     if (raw) {
       const db = JSON.parse(raw) as DemoDB
       db.winners ??= []
+      db.quiz.maxViolations ??= 2
       return db
     }
   } catch { /* reseed */ }
@@ -177,7 +180,7 @@ function finalize(db: DemoDB, a: DemoAttempt, reason: SubmitReason, at = Date.no
   Object.assign(a, {
     status: 'submitted', submittedAt: new Date(at).toISOString(), submitReason: reason, durationMs: duration,
     score: earned - incorrect * a.negativeMark, maxScore: max, correct, incorrect, unanswered,
-    flagged: reasons.length > 0, flagReasons: reasons,
+    flagged: a.flagged || reasons.length > 0, flagReasons: [...a.flagReasons, ...reasons],
   })
   return a
 }
@@ -225,6 +228,7 @@ function publicConfig(db: DemoDB): PublicConfig {
       title: db.quiz.title, questionCount: count, durationSeconds: db.quiz.durationSeconds,
       marksPerQuestion: db.quiz.marksPerQuestion, totalMarks: count * db.quiz.marksPerQuestion,
       negativeMarking: db.quiz.negativeMarking, negativeMark: db.quiz.negativeMark,
+      maxViolations: db.quiz.maxViolations ?? 2,
     },
   }
 }
@@ -246,7 +250,29 @@ function attemptState(db: DemoDB, a: DemoAttempt) {
     answers: Object.fromEntries(Object.entries(a.answers).map(([k, v]) => [k, v.optionId])),
     startedAt: a.startedAt, deadlineAt: a.deadlineAt, serverNow: new Date().toISOString(),
     durationSeconds: db.quiz.durationSeconds, negativeMarking: a.negativeMark > 0, negativeMark: a.negativeMark,
+    strikes: a.violationCount ?? 0, maxStrikes: db.quiz.maxViolations ?? 2,
   }
+}
+
+/** Mirrors record_violation(): idempotent per event id, 2 s de-dupe, out at maxViolations. */
+function recordViolation(db: DemoDB, a: DemoAttempt, kind: string, eventId: string) {
+  const max = db.quiz.maxViolations ?? 2
+  a.violations ??= []
+  if (a.status !== 'in_progress') return { strikes: a.violationCount ?? 0, maxStrikes: max, out: true }
+  const recent = a.lastViolationAt && Date.now() - Date.parse(a.lastViolationAt) < 2000
+  if (a.violations.some((v) => v.id === eventId) || recent) return { strikes: a.violationCount ?? 0, maxStrikes: max, out: false }
+  a.violationCount = (a.violationCount ?? 0) + 1
+  a.violations.push({ id: eventId, kind, at: new Date().toISOString() })
+  a.lastViolationAt = new Date().toISOString()
+  a.flagged = true
+  a.flagReasons = [...a.flagReasons, `Anti-cheat: ${kind}`]
+  if (a.violationCount >= max) {
+    finalize(db, a, 'violation')
+    a.disqualified = true
+    a.flagReasons = [...a.flagReasons, `Disqualified after ${a.violationCount} anti-cheat violations`]
+    return { strikes: a.violationCount, maxStrikes: max, out: true }
+  }
+  return { strikes: a.violationCount, maxStrikes: max, out: false }
 }
 
 function applyAnswers(a: DemoAttempt, answers: AnswerMap) {
@@ -290,6 +316,7 @@ function result(db: DemoDB, a: DemoAttempt): AttemptResult {
     attemptId: a.id, fullName: p.fullName, score: a.score!, maxScore: a.maxScore!, correct: a.correct!,
     incorrect: a.incorrect!, unanswered: a.unanswered!, totalQuestions: a.questionIds.length, durationMs: a.durationMs!,
     submittedAt: a.submittedAt!, eventDay: a.eventDay, submitReason: a.submitReason!,
+    disqualified: a.disqualified,
     draw: {
       inPool: pool.some((x) => x.id === a.id),
       topScore: pool.length ? pool[0].score : null,
@@ -402,10 +429,32 @@ export const demoParticipantApi: ParticipantApi = {
     if (!a) throw new AppError('ATTEMPT_NOT_FOUND', 'Quiz attempt not found.')
     if (a.status === 'in_progress') {
       if (Date.now() <= Date.parse(a.deadlineAt) + GRACE_MS) applyAnswers(a, answers)
-      finalize(db, a, reason === 'timeout' ? 'timeout' : 'manual')
+      finalize(db, a, reason === 'timeout' || reason === 'violation' ? reason : 'manual')
+      if (reason === 'violation') { a.disqualified = true; a.flagged = true }
       save(db)
     }
     return result(db, a)
+  },
+
+  async violation(token, attemptId, kind, eventId) {
+    await delay(80)
+    const db = load()
+    const p = auth(db, token)
+    const a = db.attempts.find((x) => x.id === attemptId && x.participantId === p.id)
+    if (!a) throw new AppError('ATTEMPT_NOT_FOUND', 'Quiz attempt not found.')
+    const res = recordViolation(db, a, kind, eventId)
+    save(db)
+    return { ...res, result: res.out ? result(db, a) : null }
+  },
+
+  beaconViolation(token, attemptId, kind, eventId) {
+    // synchronous so it also completes while the page is unloading
+    try {
+      const db = load()
+      const p = db.participants.find((x) => x.token === token)
+      const a = p && db.attempts.find((x) => x.id === attemptId && x.participantId === p.id)
+      if (a) { recordViolation(db, a, kind, eventId); save(db) }
+    } catch { /* best effort */ }
   },
 
   async result(token) {

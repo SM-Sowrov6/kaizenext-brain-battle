@@ -111,6 +111,21 @@ export default function AdminSettings() {
             <Switch label="Shuffle questions" description="Random set & order per participant." checked={quiz.shuffleQuestions} onChange={(v) => qz({ shuffleQuestions: v })} />
             <Switch label="Shuffle options" description="Randomise A–D order." checked={quiz.shuffleOptions} onChange={(v) => qz({ shuffleOptions: v })} />
           </div>
+          <div className="mt-6 rounded-2xl border border-line p-4">
+            <p className="text-sm font-medium text-fg">Anti-cheat</p>
+            <p className="mt-0.5 text-[0.8125rem] text-muted">
+              Leaving the quiz screen (app/tab switch, refresh) or copy/paste is a violation. Choose when the quiz ends and the player is disqualified.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[{ v: 1, label: 'Out on 1st', sub: 'No warning' }, { v: 2, label: 'Out on 2nd', sub: '1 warning' }, { v: 3, label: 'Out on 3rd', sub: '2 warnings' }].map((o) => (
+                <button key={o.v} type="button" onClick={() => qz({ maxViolations: o.v })}
+                  className={cn('rounded-xl border px-4 py-2.5 text-left transition', quiz.maxViolations === o.v ? 'border-accent bg-accent/10' : 'border-line hover:border-line-strong')}>
+                  <span className="block text-sm font-semibold text-fg">{o.label}</span>
+                  <span className="text-xs text-muted">{o.sub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </Section>
 
         <Section title="Competition information" desc="Shown on the landing and instructions pages.">

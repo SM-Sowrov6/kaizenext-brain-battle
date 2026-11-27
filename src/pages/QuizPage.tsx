@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlarmClockOff, ArrowLeft, ArrowRight, CheckCheck, Eraser, LayoutGrid, Send, WifiOff } from 'lucide-react'
+import { AlarmClockOff, ArrowLeft, ArrowRight, CheckCheck, Eraser, LayoutGrid, Send, ShieldAlert, ShieldCheck, WifiOff } from 'lucide-react'
 import { api, toAppError, type AnswerMap } from '@/services'
 import { useSession } from '@/hooks/useSession'
 import { useOnline, useTitle } from '@/hooks/misc'
+import { useAntiCheat } from '@/hooks/useAntiCheat'
 import { KEYS, storage } from '@/lib/storage'
 import { cn } from '@/lib/cn'
 import { LogoMark } from '@/components/ui/Brand'
@@ -14,12 +15,24 @@ import { Dialog } from '@/components/ui/Dialog'
 import { ErrorState, PageLoader } from '@/components/ui/Feedback'
 import { AmbientBackground } from '@/layouts/PublicLayout'
 import { OptionButton, QuestionGrid, SaveIndicator, SegmentedProgress, TimerPill, type SaveStatus } from '@/components/quiz/QuizParts'
-import type { AttemptState, SubmitReason } from '@/types'
+import type { AttemptState, SubmitReason, ViolationKind, ViolationResponse } from '@/types'
 
 type Phase = 'loading' | 'active' | 'submitting' | 'error'
 interface LocalCache { answers: Record<string, string>; pending: AnswerMap }
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
+
+const VIOLATION_TEXT: Record<ViolationKind, string> = {
+  tab_hidden: 'You left the quiz screen (switched app or tab, or locked the phone).',
+  page_leave: 'You refreshed or left the quiz page.',
+  window_blur: 'The quiz window lost focus (another window or app was opened).',
+  copy: 'Copying is not allowed during the quiz.',
+  cut: 'Copying is not allowed during the quiz.',
+  paste: 'Pasting is not allowed during the quiz.',
+  devtools: 'Developer tools are not allowed during the quiz.',
+  print_screen: 'Screenshots are not allowed during the quiz.',
+}
+const ackKey = (attemptId: string) => `kbb.ack.${attemptId}`
 
 /** Mark Bangla text so it gets Bangla-friendly typography (see :lang(bn) in index.css). */
 const langOf = (text: string) => (/[ঀ-৿]/.test(text) ? 'bn' : undefined)
@@ -42,6 +55,9 @@ export default function QuizPage() {
   const [navOpen, setNavOpen] = useState(false)
   const [timeUp, setTimeUp] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [strikes, setStrikes] = useState(0)
+  const [maxStrikes, setMaxStrikes] = useState(2)
+  const [warning, setWarning] = useState<{ kind: ViolationKind | null; strikes: number } | null>(null)
 
   const pending = useRef<AnswerMap>({})
   const inflight = useRef(false)
@@ -76,6 +92,9 @@ export default function QuizPage() {
       }
       setAttempt(res)
       setAnswers(merged)
+      setStrikes(res.strikes ?? 0)
+      setMaxStrikes(res.maxStrikes ?? 2)
+      if ((res.strikes ?? 0) > storage.get<number>(ackKey(res.attemptId), 0)) setWarning({ kind: 'page_leave', strikes: res.strikes })
       const firstUnanswered = res.questions.findIndex((q) => !merged[q.id])
       setIndex(firstUnanswered === -1 ? 0 : firstUnanswered)
       setRemaining((Date.parse(res.deadlineAt) - (Date.now() + offset.current)) / 1000)
@@ -168,7 +187,7 @@ export default function QuizPage() {
   }, [phase, persistLocal])
 
   /* ── Submit ──────────────────────────────────────────────── */
-  const submit = useCallback(async (reason: SubmitReason) => {
+  const submit = useCallback(async (reason: SubmitReason, kind?: ViolationKind) => {
     if (!attempt || !token || submitted.current) return
     submitted.current = true
     setConfirmOpen(false)
@@ -181,8 +200,9 @@ export default function QuizPage() {
 
     for (let i = 0; i < 6; i++) {
       try {
-        const result = await api.submit(token, attempt.attemptId, payload, reason)
+        const result = await api.submit(token, attempt.attemptId, payload, reason, kind)
         storage.remove(KEYS.answers(attempt.attemptId))
+        storage.remove(ackKey(attempt.attemptId))
         navigate('/result', { replace: true, state: { result } })
         return
       } catch (err) {
@@ -218,6 +238,50 @@ export default function QuizPage() {
     const id = setInterval(tick, 250)
     return () => clearInterval(id)
   }, [attempt, phase, submit])
+
+  /* ── Anti-cheat ──────────────────────────────────────────── */
+  const strikesRef = useRef(0)
+  strikesRef.current = strikes
+
+  const applyViolation = useCallback((res: ViolationResponse, kind: ViolationKind) => {
+    if (!attempt) return
+    setMaxStrikes(res.maxStrikes)
+    if (res.out) {
+      submitted.current = true
+      storage.remove(KEYS.answers(attempt.attemptId))
+      storage.remove(ackKey(attempt.attemptId))
+      navigate('/result', { replace: true, state: res.result ? { result: res.result } : null })
+      return
+    }
+    if (res.strikes > strikesRef.current) {
+      setStrikes(res.strikes)
+      setWarning({ kind, strikes: res.strikes })
+    }
+  }, [attempt, navigate])
+
+  const reportViolation = useCallback((kind: ViolationKind, eventId: string) => {
+    if (!attempt || !token || submitted.current) return
+    api.violation(token, attempt.attemptId, kind, eventId)
+      .then((res) => applyViolation(res, kind))
+      .catch(() => {
+        // Couldn't reach the server: enforce locally; the server is told on submit.
+        const next = strikesRef.current + 1
+        if (next >= maxStrikes) void submit('violation', kind)
+        else { setStrikes(next); setWarning({ kind, strikes: next }) }
+      })
+  }, [attempt, token, applyViolation, maxStrikes, submit])
+
+  const beaconViolation = useCallback((kind: ViolationKind, eventId: string) => {
+    if (!attempt || !token || submitted.current) return
+    api.beaconViolation(token, attempt.attemptId, kind, eventId)
+  }, [attempt, token])
+
+  useAntiCheat({ enabled: phase === 'active' && Boolean(attempt), report: reportViolation, beacon: beaconViolation })
+
+  const acknowledgeWarning = () => {
+    if (attempt && warning) storage.set(ackKey(attempt.attemptId), warning.strikes)
+    setWarning(null)
+  }
 
   /* ── Leave protection ────────────────────────────────────── */
   useEffect(() => {
@@ -274,7 +338,7 @@ export default function QuizPage() {
   const unanswered = questions.map((x, i) => (answers[x.id] ? -1 : i)).filter((i) => i >= 0)
 
   return (
-    <div className="relative flex min-h-dvh flex-col">
+    <div className="relative flex min-h-dvh flex-col select-none [-webkit-touch-callout:none]">
       <AmbientBackground intensity={0.55} />
 
       {/* Top bar */}
@@ -284,7 +348,11 @@ export default function QuizPage() {
             <LogoMark className="size-8" />
             <div className="min-w-0 leading-tight">
               <p className="truncate text-sm font-semibold text-fg">Question {index + 1} <span className="text-faint">/ {questions.length}</span></p>
-              <p className="hidden text-xs text-faint sm:block">{answeredCount} answered</p>
+              <p className={cn('flex items-center gap-1 text-xs', strikes > 0 ? 'text-danger' : 'text-faint')}>
+                {strikes > 0 ? <ShieldAlert className="size-3.5" /> : <ShieldCheck className="size-3.5 text-success" />}
+                {strikes > 0 ? `Warning ${strikes}/${maxStrikes - 1}` : 'Proctored'}
+                <span className="hidden sm:inline">· {answeredCount} answered</span>
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -441,6 +509,46 @@ export default function QuizPage() {
           </div>
         )}
       </Dialog>
+
+      {/* Anti-cheat warning (the timer keeps running behind it) */}
+      <AnimatePresence>
+        {warning && phase === 'active' && (
+          <motion.div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="ac-title"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] grid place-items-center bg-bg/95 px-6 backdrop-blur-md"
+          >
+            <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,color-mix(in_oklab,var(--t-danger)_28%,transparent),transparent_70%)]" />
+            <motion.div initial={{ scale: 0.92, y: 12 }} animate={{ scale: 1, y: 0 }} className="relative flex w-full max-w-md flex-col items-center text-center">
+              <motion.div
+                animate={{ rotate: [0, -8, 8, -6, 6, 0] }}
+                transition={{ duration: 0.6 }}
+                className="grid size-18 place-items-center rounded-3xl border border-danger/50 bg-danger/15 text-danger"
+              >
+                <ShieldAlert className="size-9" />
+              </motion.div>
+              <p className="mt-6 text-xs font-bold uppercase tracking-[0.25em] text-danger">
+                Warning {warning.strikes} of {Math.max(1, maxStrikes - 1)}
+              </p>
+              <h2 id="ac-title" className="font-headline mt-2 text-3xl text-fg">Stay on the quiz screen</h2>
+              <p className="mt-3 text-muted">{warning.kind ? VIOLATION_TEXT[warning.kind] : 'A rule was broken.'} This has been recorded.</p>
+              <p className="mt-4 rounded-2xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm font-semibold text-fg">
+                {maxStrikes - warning.strikes <= 1
+                  ? 'One more time and your quiz ends immediately. You will be disqualified.'
+                  : `${maxStrikes - warning.strikes} more and your quiz ends. You will be disqualified.`}
+              </p>
+              <p className="mt-3 text-xs text-faint">The timer is still running.</p>
+              <Button size="lg" variant="danger" className="mt-7 w-full" onClick={acknowledgeWarning}>
+                I understand, continue the quiz
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Submitting overlay */}
       <AnimatePresence>

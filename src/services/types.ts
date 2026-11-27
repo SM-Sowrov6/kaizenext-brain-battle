@@ -1,7 +1,7 @@
 import type {
   AdminParticipant, AdminQuestion, AdminStats, AttemptAnswerDetail, AttemptResult, BoardResponse,
   DrawWinner, EventDay, EventSettings, ParticipantSession, PublicConfig, QuestionDraft, QuizSettings,
-  RegistrationInput, SessionInfo, StartResponse, SubmitReason,
+  RegistrationInput, SessionInfo, StartResponse, SubmitReason, ViolationKind, ViolationResponse,
 } from '@/types'
 
 export type AnswerMap = Record<string, string | null>
@@ -12,7 +12,11 @@ export interface ParticipantApi {
   getSession(token: string): Promise<SessionInfo>
   start(token: string): Promise<StartResponse>
   save(token: string, attemptId: string, answers: AnswerMap): Promise<{ serverNow: string }>
-  submit(token: string, attemptId: string, answers: AnswerMap, reason: SubmitReason): Promise<AttemptResult>
+  submit(token: string, attemptId: string, answers: AnswerMap, reason: SubmitReason, kind?: ViolationKind): Promise<AttemptResult>
+  /** Report an anti-cheat violation; idempotent per eventId. */
+  violation(token: string, attemptId: string, kind: ViolationKind, eventId: string): Promise<ViolationResponse>
+  /** Fire-and-forget report that survives the page being hidden or closed (sendBeacon). */
+  beaconViolation(token: string, attemptId: string, kind: ViolationKind, eventId: string): void
   result(token: string): Promise<AttemptResult>
   /** Booth board for a day (defaults to the active day): draw pool + winners, no ranks. */
   leaderboard(day?: EventDay): Promise<BoardResponse>

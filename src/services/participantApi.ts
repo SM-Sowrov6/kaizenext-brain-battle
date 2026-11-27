@@ -54,8 +54,18 @@ export const supabaseParticipantApi: ParticipantApi = {
   getSession: (token) => call('session', { token }, { retries: 2 }),
   start: (token) => call('start', { token }, { retries: 2, timeoutMs: 15_000 }),
   save: (token, attemptId, answers) => call('save', { token, attemptId, answers }, { retries: 0, timeoutMs: 8_000 }),
-  submit: (token, attemptId, answers, reason) =>
-    call('submit', { token, attemptId, answers, reason }, { retries: 2, timeoutMs: 15_000 }),
+  submit: (token, attemptId, answers, reason, kind) =>
+    call('submit', { token, attemptId, answers, reason, kind }, { retries: 2, timeoutMs: 15_000 }),
+  violation: (token, attemptId, kind, eventId) =>
+    call('violation', { token, attemptId, kind, eventId }, { retries: 2, timeoutMs: 8_000 }),
+  beaconViolation(token, attemptId, kind, eventId) {
+    // text/plain + no custom headers = a "simple" request, so sendBeacon can deliver it
+    // even while the page is being hidden, refreshed or closed.
+    const body = new Blob([JSON.stringify({ action: 'violation', token, attemptId, kind, eventId })], { type: 'text/plain;charset=UTF-8' })
+    const url = `${env.supabaseUrl}/functions/v1/quiz-api`
+    const sent = typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(url, body)
+    if (!sent) void fetch(url, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(() => undefined)
+  },
   result: (token) => call('result', { token }, { retries: 2 }),
   leaderboard: (day) => call('leaderboard', { day }, { retries: 1, timeoutMs: 10_000 }),
 }

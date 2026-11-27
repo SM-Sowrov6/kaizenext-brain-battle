@@ -49,7 +49,7 @@ type Settings = {
 type Quiz = {
   id: string; title: string; duration_seconds: number; question_count: number
   marks_per_question: number; negative_marking: boolean; negative_mark: number
-  shuffle_questions: boolean; shuffle_options: boolean
+  shuffle_questions: boolean; shuffle_options: boolean; max_violations?: number
 }
 
 async function loadConfigUncached() {
@@ -103,6 +103,7 @@ async function actionConfig() {
       marksPerQuestion: Number(q.marks_per_question),
       totalMarks: questionCount * Number(q.marks_per_question),
       negativeMarking: q.negative_marking, negativeMark: Number(q.negative_mark),
+      maxViolations: q.max_violations ?? 2,
     },
   }
 }
@@ -168,10 +169,10 @@ async function actionSession(body: Record<string, unknown>) {
 type AttemptRow = {
   id: string; participant_id: string; status: 'in_progress' | 'submitted'; question_ids: string[]
   option_order: Record<string, string[]>; started_at: string; deadline_at: string; negative_mark: number
-  event_day: 1 | 2
+  event_day: 1 | 2; violation_count?: number
 }
 
-async function buildAttemptState(a: AttemptRow, durationSeconds: number, negativeMarking: boolean) {
+async function buildAttemptState(a: AttemptRow, durationSeconds: number, negativeMarking: boolean, maxStrikes = 2) {
   const [{ data: qs, error: qe }, { data: opts, error: oe }, { data: ans, error: ae }] = await Promise.all([
     db.from('questions').select('id, prompt, marks').in('id', a.question_ids),
     db.from('question_options').select('id, question_id, text').in('question_id', a.question_ids), // never is_correct
@@ -196,6 +197,7 @@ async function buildAttemptState(a: AttemptRow, durationSeconds: number, negativ
     status: 'in_progress' as const, attemptId: a.id, questions, answers,
     startedAt: a.started_at, deadlineAt: a.deadline_at, serverNow: new Date().toISOString(),
     durationSeconds, negativeMarking, negativeMark: Number(a.negative_mark),
+    strikes: a.violation_count ?? 0, maxStrikes,
   }
 }
 
@@ -210,7 +212,7 @@ async function actionStart(body: Record<string, unknown>) {
       await db.rpc('finalize_attempt', { p_attempt_id: existing.id, p_reason: 'expired' })
       return { status: 'submitted', attemptId: existing.id }
     }
-    return buildAttemptState(existing, quiz.duration_seconds, quiz.negative_marking)
+    return buildAttemptState(existing, quiz.duration_seconds, quiz.negative_marking, quiz.max_violations ?? 2)
   }
 
   if (!settings.quiz_enabled) throw new ApiError(403, 'QUIZ_CLOSED', 'The quiz is not live right now. Please check back shortly.')
@@ -249,11 +251,11 @@ async function actionStart(body: Record<string, unknown>) {
       // Double-tap / two tabs: return the attempt that won the race
       const { data: again } = await db.from('attempts').select('*').eq('participant_id', p.id).single<AttemptRow>()
       if (again!.status === 'submitted') return { status: 'submitted', attemptId: again!.id }
-      return buildAttemptState(again!, quiz.duration_seconds, quiz.negative_marking)
+      return buildAttemptState(again!, quiz.duration_seconds, quiz.negative_marking, quiz.max_violations ?? 2)
     }
     throw ce
   }
-  return buildAttemptState(created!, quiz.duration_seconds, quiz.negative_marking)
+  return buildAttemptState(created!, quiz.duration_seconds, quiz.negative_marking, quiz.max_violations ?? 2)
 }
 
 async function loadOwnAttempt(participantId: string, attemptId: unknown) {
@@ -301,7 +303,7 @@ async function actionSave(body: Record<string, unknown>) {
 async function buildResult(attemptId: string) {
   const { data: a, error } = await db
     .from('attempts')
-    .select('id, event_day, score, max_score, correct_count, incorrect_count, unanswered_count, duration_ms, submitted_at, submit_reason, question_ids, participants(full_name)')
+    .select('id, event_day, score, max_score, correct_count, incorrect_count, unanswered_count, duration_ms, submitted_at, submit_reason, disqualified, question_ids, participants(full_name)')
     .eq('id', attemptId).single()
   if (error || !a) throw error ?? new ApiError(404, 'ATTEMPT_NOT_FOUND', 'Result not found.')
   // No public ranks: tell the participant only whether they are in today's lucky-draw pool.
@@ -322,7 +324,7 @@ async function buildResult(attemptId: string) {
     score: Number(a.score), maxScore: Number(a.max_score),
     correct: a.correct_count, incorrect: a.incorrect_count, unanswered: a.unanswered_count,
     totalQuestions: a.question_ids.length, durationMs: a.duration_ms, submittedAt: a.submitted_at,
-    eventDay: a.event_day, submitReason: a.submit_reason,
+    eventDay: a.event_day, submitReason: a.submit_reason, disqualified: Boolean(a.disqualified),
     draw: {
       inPool: poolRows.some((r) => r.attempt_id === a.id),
       topScore: poolRows.length ? Number(poolRows[0].score) : null,
@@ -337,9 +339,14 @@ async function actionSubmit(body: Record<string, unknown>) {
   const a = await loadOwnAttempt(p.id, body.attemptId)
   if (a.status === 'in_progress') {
     if (Date.now() <= Date.parse(a.deadline_at) + GRACE_MS) await applyAnswers(a, body.answers)
-    const reason = body.reason === 'timeout' ? 'timeout' : 'manual'
-    const { error } = await db.rpc('finalize_attempt', { p_attempt_id: a.id, p_reason: reason })
-    if (error) throw error
+    if (body.reason === 'violation') {
+      const { error } = await db.rpc('force_violation_out', { p_attempt_id: a.id, p_kind: violationKind(body.kind) })
+      if (error) throw error
+    } else {
+      const reason = body.reason === 'timeout' ? 'timeout' : 'manual'
+      const { error } = await db.rpc('finalize_attempt', { p_attempt_id: a.id, p_reason: reason })
+      if (error) throw error
+    }
     leaderboardCache.clear()
   }
   return buildResult(a.id) // idempotent: repeated submits return the same result
@@ -406,8 +413,31 @@ async function actionLeaderboard(body: Record<string, unknown>) {
   return value
 }
 
+// ── Anti-cheat ────────────────────────────────────────────────────
+const VIOLATION_KINDS = new Set(['tab_hidden', 'window_blur', 'page_leave', 'copy', 'cut', 'paste', 'devtools', 'print_screen'])
+function violationKind(v: unknown) {
+  return typeof v === 'string' && VIOLATION_KINDS.has(v) ? v : 'unknown'
+}
+
+// Called by the quiz page (fetch, or sendBeacon when the page is being hidden/closed).
+// Strikes are counted in the database; reaching the limit ends + disqualifies the attempt.
+async function actionViolation(body: Record<string, unknown>) {
+  const p = await authParticipant(body.token)
+  const a = await loadOwnAttempt(p.id, body.attemptId)
+  const eventId = typeof body.eventId === 'string' ? body.eventId.slice(0, 64) : ''
+  const { data, error } = await db
+    .rpc('record_violation', { p_attempt_id: a.id, p_kind: violationKind(body.kind), p_event_id: eventId })
+    .single<{ strikes: number; max_strikes: number; is_out: boolean }>()
+  if (error || !data) throw error ?? new ApiError(500, 'SERVER_ERROR', 'Could not record the event.')
+  if (data.is_out) leaderboardCache.clear()
+  return {
+    strikes: Number(data.strikes), maxStrikes: Number(data.max_strikes), out: Boolean(data.is_out),
+    result: data.is_out ? await buildResult(a.id) : null,
+  }
+}
+
 const LIMITS: Record<string, number> = {
-  register: 40, start: 60, save: 900, submit: 60, leaderboard: 600, config: 600, session: 300, result: 300,
+  register: 40, start: 60, save: 900, submit: 60, leaderboard: 600, config: 600, session: 300, result: 300, violation: 300,
 }
 
 const handlers: Record<string, (body: Record<string, unknown>, req: Request) => Promise<unknown>> = {
@@ -419,6 +449,7 @@ const handlers: Record<string, (body: Record<string, unknown>, req: Request) => 
   submit: actionSubmit,
   result: actionResult,
   leaderboard: actionLeaderboard,
+  violation: actionViolation,
 }
 
 Deno.serve(async (req) => {

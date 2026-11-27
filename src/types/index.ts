@@ -29,6 +29,8 @@ export interface PublicConfig {
     totalMarks: number
     negativeMarking: boolean
     negativeMark: number
+    /** Anti-cheat strikes that end the quiz (older backends omit it → 2). */
+    maxViolations?: number
   }
 }
 
@@ -72,6 +74,20 @@ export interface AttemptState {
   durationSeconds: number
   negativeMarking: boolean
   negativeMark: number
+  /** Anti-cheat strikes already recorded on the server for this attempt. */
+  strikes: number
+  /** Strikes that end the quiz (2 = one warning, then out). */
+  maxStrikes: number
+}
+
+export type ViolationKind = 'tab_hidden' | 'window_blur' | 'page_leave' | 'copy' | 'cut' | 'paste' | 'devtools' | 'print_screen'
+
+export interface ViolationResponse {
+  strikes: number
+  maxStrikes: number
+  /** true → the attempt has ended and is disqualified */
+  out: boolean
+  result: AttemptResult | null
 }
 
 export type StartResponse = AttemptState | { status: 'submitted'; attemptId: string }
@@ -89,6 +105,8 @@ export interface AttemptResult {
   submittedAt: string
   eventDay: EventDay
   submitReason: SubmitReason
+  /** Ended by the anti-cheat system (or by an admin); excluded from prizes. */
+  disqualified: boolean
   /** Lucky-draw status for the participant's own day (no public ranks). */
   draw: {
     inPool: boolean
@@ -100,7 +118,7 @@ export interface AttemptResult {
   }
 }
 
-export type SubmitReason = 'manual' | 'timeout' | 'expired'
+export type SubmitReason = 'manual' | 'timeout' | 'expired' | 'violation'
 
 /** A name in the day's lucky-draw pool (everyone tied on the highest score). Names only. */
 export interface PoolEntry {
@@ -179,6 +197,8 @@ export interface QuizSettings {
   negativeMark: number
   shuffleQuestions: boolean
   shuffleOptions: boolean
+  /** Anti-cheat strikes that end the quiz (2 = one warning, then out). */
+  maxViolations: number
 }
 
 export interface AdminParticipant {

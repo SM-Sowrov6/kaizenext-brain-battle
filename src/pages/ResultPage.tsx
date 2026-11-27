@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
-import { CheckCircle2, CircleDashed, Clock3, Home, PartyPopper, Ticket, TimerOff, Trophy, XCircle } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Clock3, Home, PartyPopper, ShieldAlert, Ticket, TimerOff, Trophy, XCircle } from 'lucide-react'
 import { api, toAppError } from '@/services'
 import { useSession } from '@/hooks/useSession'
 import { useConfig } from '@/hooks/useConfig'
@@ -60,9 +60,11 @@ export default function ResultPage() {
 
 function ResultView({ r }: { r: AttemptResult }) {
   const pct = r.maxScore > 0 ? Math.max(0, r.score) / r.maxScore : 0
-  const t = tier(pct)
+  const t = r.disqualified
+    ? { title: 'Quiz ended', line: 'Your quiz was stopped by the anti-cheat system.' }
+    : tier(pct)
   const { config } = useConfig()
-  const celebrate = Boolean(r.draw?.inPool || r.draw?.wonPosition != null)
+  const celebrate = !r.disqualified && Boolean(r.draw?.inPool || r.draw?.wonPosition != null)
 
   const count = useMotionValue(0)
   const shown = useTransform(count, (v) => formatScore(Math.round(v * 100) / 100))
@@ -121,7 +123,7 @@ function ResultView({ r }: { r: AttemptResult }) {
             {t.line}
           </motion.p>
 
-          {r.submitReason !== 'manual' && (
+          {r.submitReason !== 'manual' && r.submitReason !== 'violation' && (
             <p className="relative mt-4 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-faint">
               <TimerOff className="size-3.5" /> Auto-submitted when the timer ran out
             </p>
@@ -175,6 +177,14 @@ function ResultView({ r }: { r: AttemptResult }) {
 }
 
 function DrawStatus({ r, prizes }: { r: AttemptResult; prizes: Prize[] }) {
+  if (r.disqualified) {
+    return (
+      <StatusBox tone="danger" icon={<ShieldAlert />} title="Disqualified">
+        Your quiz was ended because you left the quiz screen or used copy/paste after a warning.
+        Disqualified attempts can't win prizes. If this was a mistake, talk to the Kaizenext team.
+      </StatusBox>
+    )
+  }
   const { inPool, topScore, poolSize, wonPosition } = r.draw ?? { inPool: false, topScore: null, poolSize: 0, wonPosition: null }
   if (wonPosition != null) {
     const prize = prizes[wonPosition - 1]
@@ -204,11 +214,12 @@ function DrawStatus({ r, prizes }: { r: AttemptResult; prizes: Prize[] }) {
   )
 }
 
-function StatusBox({ tone, icon, title, children }: { tone: 'win' | 'neutral'; icon: ReactNode; title: string; children: ReactNode }) {
+function StatusBox({ tone, icon, title, children }: { tone: 'win' | 'neutral' | 'danger'; icon: ReactNode; title: string; children: ReactNode }) {
   const win = tone === 'win'
+  const danger = tone === 'danger'
   return (
-    <div className={cn('flex items-start gap-4 rounded-2xl border p-4 text-left sm:p-5', win ? 'border-accent/40 bg-accent/8' : 'border-line bg-bg-soft/60')}>
-      <span className={cn('grid size-12 shrink-0 place-items-center rounded-xl [&>svg]:size-5.5', win ? 'bg-gradient-accent text-on-accent' : 'bg-surface-2 text-accent')}>{icon}</span>
+    <div className={cn('flex items-start gap-4 rounded-2xl border p-4 text-left sm:p-5', win ? 'border-accent/40 bg-accent/8' : danger ? 'border-danger/40 bg-danger/8' : 'border-line bg-bg-soft/60')}>
+      <span className={cn('grid size-12 shrink-0 place-items-center rounded-xl [&>svg]:size-5.5', win ? 'bg-gradient-accent text-on-accent' : danger ? 'bg-danger/15 text-danger' : 'bg-surface-2 text-accent')}>{icon}</span>
       <div className="min-w-0">
         <p className="font-headline text-lg text-fg sm:text-xl">{title}</p>
         <p className="mt-1 text-sm leading-relaxed text-muted">{children}</p>

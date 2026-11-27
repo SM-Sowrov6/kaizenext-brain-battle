@@ -31,10 +31,10 @@ export default function AdminQr() {
   return (
     <>
       <PageHeader title="QR code" description="Print this at the booth. It opens the landing page on participants’ phones." />
-      <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
-        <Card className="flex flex-col items-center p-8">
-          {valid ? <QrCode value={url} size={260} /> : <div className="grid size-[280px] place-items-center rounded-2xl border border-dashed border-line-strong text-sm text-faint">Enter a valid URL</div>}
-          <div className="mt-6 flex gap-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[auto_minmax(0,1fr)]">
+        <Card className="flex flex-col items-center p-5 sm:p-8">
+          {valid ? <QrCode value={url} size={260} /> : <div className="grid aspect-square w-full max-w-[280px] place-items-center rounded-2xl border border-dashed border-line-strong text-sm text-faint">Enter a valid URL</div>}
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button size="sm" icon={<Download className="size-4" />} onClick={png} disabled={!valid}>PNG (print)</Button>
             <Button size="sm" variant="secondary" icon={<Download className="size-4" />} onClick={svg} disabled={!valid}>SVG</Button>
           </div>

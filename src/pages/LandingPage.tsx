@@ -43,7 +43,7 @@ export default function LandingPage() {
   return (
     <>
       {/* ── Hero ───────────────────────────────────────────── */}
-      <section className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pt-10 pb-16 sm:px-6 sm:pt-16 lg:grid-cols-[1.1fr_1fr] lg:gap-10 lg:pt-20 lg:pb-24">
+      <section className="relative mx-auto grid max-w-6xl items-center gap-14 overflow-x-clip px-4 pt-10 pb-16 sm:px-6 sm:pt-16 lg:grid-cols-[1.1fr_1fr] lg:gap-10 lg:pt-20 lg:pb-24">
         <div className="text-center lg:text-left">
           <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0}>
             <span className="inline-flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 rounded-full border border-line-strong bg-surface/70 py-1.5 pr-4 pl-1.5 text-xs font-medium text-muted backdrop-blur">
@@ -104,7 +104,8 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="relative px-4 sm:px-10 lg:px-0">
+        {/* Decorative animation: tablets and up only — phones go straight to the content */}
+        <div className="relative hidden px-10 md:block lg:px-0">
           <HeroVisual />
         </div>
       </section>

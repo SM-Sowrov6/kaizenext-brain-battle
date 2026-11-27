@@ -112,37 +112,35 @@ export default function AdminQuestions() {
         <div className="space-y-3">
           {questions.map((q, i) => (
             <motion.div key={q.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 10) * 0.02 }}>
-              <Card className={cn('p-5', !q.isActive && 'opacity-60')}>
-                <div className="flex items-start gap-4">
-                  <span className="mt-0.5 font-mono text-xs text-faint">#{(list.data?.indexOf(q) ?? i) + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium leading-snug text-fg">{q.prompt}</p>
-                    <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
-                      {q.options.map((o, oi) => (
-                        <div key={o.id ?? oi} className={cn('flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm', o.isCorrect ? 'border-success/40 bg-success/8 text-fg' : 'border-line text-muted')}>
-                          <span className={cn('grid size-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold', o.isCorrect ? 'bg-success text-white' : 'bg-surface-3 text-faint')}>
-                            {o.isCorrect ? <Check className="size-3" strokeWidth={3} /> : LETTERS[oi]}
-                          </span>
-                          <span className="truncate">{o.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <Badge>{q.marks} mark{q.marks === 1 ? '' : 's'}</Badge>
-                      {!q.isActive && <Badge tone="warning">Inactive</Badge>}
-                    </div>
+              <Card className={cn('p-4 sm:p-5', !q.isActive && 'opacity-60')}>
+                {/* Top row: number + badges on the left, controls on the right — the question text below gets the full width on phones */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="font-mono text-xs text-faint">#{(list.data?.indexOf(q) ?? i) + 1}</span>
+                    <Badge>{q.marks} mark{q.marks === 1 ? '' : 's'}</Badge>
+                    {!q.isActive && <Badge tone="warning">Inactive</Badge>}
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                  <div className="flex shrink-0 items-center gap-1">
                     <Switch checked={q.isActive} onChange={() => void toggleActive(q)} />
-                    <div className="flex">
-                      <button aria-label="Edit question" onClick={() => setEditing({ id: q.id, prompt: q.prompt, marks: q.marks, isActive: q.isActive, options: q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) })} className="grid size-9 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg">
-                        <Pencil className="size-4" />
-                      </button>
-                      <button aria-label="Delete question" onClick={() => setDeleting(q)} className="grid size-9 place-items-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger">
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
+                    <button aria-label="Edit question" onClick={() => setEditing({ id: q.id, prompt: q.prompt, marks: q.marks, isActive: q.isActive, options: q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) })} className="ml-1 grid size-10 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg">
+                      <Pencil className="size-4" />
+                    </button>
+                    <button aria-label="Delete question" onClick={() => setDeleting(q)} className="grid size-10 place-items-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger">
+                      <Trash2 className="size-4" />
+                    </button>
                   </div>
+                </div>
+                <p className="mt-3 font-medium leading-snug break-words text-fg">{q.prompt}</p>
+                {/* minmax(0,1fr) columns stop long option text from stretching the grid past the screen */}
+                <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {q.options.map((o, oi) => (
+                    <div key={o.id ?? oi} className={cn('flex min-w-0 items-start gap-2 rounded-lg border px-2.5 py-1.5 text-sm', o.isCorrect ? 'border-success/40 bg-success/8 text-fg' : 'border-line text-muted')}>
+                      <span className={cn('mt-px grid size-5 shrink-0 place-items-center rounded font-mono text-[10px] font-bold', o.isCorrect ? 'bg-success text-white' : 'bg-surface-3 text-faint')}>
+                        {o.isCorrect ? <Check className="size-3" strokeWidth={3} /> : LETTERS[oi]}
+                      </span>
+                      <span className="min-w-0 break-words">{o.text}</span>
+                    </div>
+                  ))}
                 </div>
               </Card>
             </motion.div>

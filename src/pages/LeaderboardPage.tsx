@@ -200,7 +200,7 @@ export default function LeaderboardPage() {
             <SideStat icon={<Users />} label="Participants" value={data?.stats.participants} />
             <SideStat icon={<CheckCircle2 />} label="Completed" value={data?.stats.completed} />
           </div>
-          <div className="card-surface flex flex-col items-center rounded-3xl p-6 text-center">
+          <div className="card-surface hidden flex-col items-center rounded-3xl p-6 text-center sm:flex">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Scan to play</p>
             <QrCode value={siteUrl} size={180} className="mt-4" />
             <p className="font-headline mt-4 text-lg text-fg">Think Fast. Play Smart.</p>

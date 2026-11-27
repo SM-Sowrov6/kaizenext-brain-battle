@@ -4,7 +4,6 @@ import { ExternalLink, FileQuestion, LayoutDashboard, LogOut, QrCode, Settings, 
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { cn } from '@/lib/cn'
 import { Wordmark } from '@/components/ui/Brand'
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher'
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -49,7 +48,6 @@ export function AdminLayout() {
           <a href="/leaderboard" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-line px-3 py-2.5 text-sm text-muted transition hover:border-line-strong hover:text-fg">
             Open booth display <ExternalLink className="size-3.5" />
           </a>
-          <ThemeSwitcher compact className="w-fit" />
           <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 py-2.5">
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-faint">Signed in</p>
@@ -67,7 +65,6 @@ export function AdminLayout() {
         <div className="flex h-14 items-center justify-between px-4">
           <Wordmark to="/admin" compact />
           <div className="flex items-center gap-2">
-            <ThemeSwitcher compact />
             <button onClick={() => void signOut()} aria-label="Sign out" className="grid size-9 place-items-center rounded-lg text-muted hover:text-danger">
               <LogOut className="size-4" />
             </button>

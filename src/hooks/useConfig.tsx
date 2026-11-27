@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, errorMessage } from '@/services'
 import type { PublicConfig } from '@/types'
-import { useTheme } from './useTheme'
 
 interface ConfigCtx {
   config: PublicConfig | null
@@ -16,20 +15,18 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<PublicConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { applyDefault } = useTheme()
 
   const reload = useCallback(async () => {
     try {
       setError(null)
       const c = await api.getConfig()
       setConfig(c)
-      applyDefault(c.event.defaultTheme)
     } catch (e) {
       setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
-  }, [applyDefault])
+  }, [])
 
   useEffect(() => {
     void reload()

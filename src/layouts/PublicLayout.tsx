@@ -3,7 +3,6 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { ArrowUpRight, Mail, Trophy } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { FacebookIcon, KAIZENEXT_LINKS, LinkedInIcon, Wordmark } from '@/components/ui/Brand'
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher'
 
 /** Ambient lighting behind every public page. Pure CSS, GPU-cheap. */
 export function AmbientBackground({ intensity = 1 }: { intensity?: number }) {
@@ -61,7 +60,6 @@ function Header({ minimal }: { minimal?: boolean }) {
           >
             <Trophy className="size-4" /> Leaderboard
           </NavLink>
-          <ThemeSwitcher />
         </nav>
       </div>
     </header>

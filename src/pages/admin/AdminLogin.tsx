@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Alert, PageLoader } from '@/components/ui/Feedback'
 import { Field, Input } from '@/components/ui/Form'
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher'
 import { AmbientBackground } from '@/layouts/PublicLayout'
 
 export default function AdminLogin() {
@@ -50,7 +49,6 @@ export default function AdminLogin() {
       <AmbientBackground intensity={0.7} />
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <Wordmark />
-        <ThemeSwitcher />
       </header>
       <main className="grid flex-1 place-items-center px-4 pb-16">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">

@@ -3,7 +3,6 @@ import { Plus, Save, Trash2 } from 'lucide-react'
 import { adminApi, errorMessage } from '@/services'
 import { useTitle } from '@/hooks/misc'
 import { useConfig } from '@/hooks/useConfig'
-import { THEMES } from '@/hooks/useTheme'
 import { cn } from '@/lib/cn'
 import { PageHeader } from '@/layouts/AdminLayout'
 import { Button } from '@/components/ui/Button'
@@ -144,16 +143,6 @@ export default function AdminSettings() {
           </div>
         </Section>
 
-        <Section title="Default theme" desc="First-visit theme for everyone. Visitors can still switch with the toggle.">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {THEMES.map((t) => (
-              <button key={t.id} onClick={() => e({ defaultTheme: t.id })} className={cn('flex items-center gap-3 rounded-2xl border p-4 text-left transition', ev.defaultTheme === t.id ? 'border-accent bg-accent/8' : 'border-line hover:border-line-strong')}>
-                <span className="size-9 shrink-0 rounded-xl ring-1 ring-white/10" style={{ background: `linear-gradient(135deg, ${t.swatch[1]}, ${t.swatch[2]})`, boxShadow: `inset 0 0 0 4px ${t.swatch[0]}` }} />
-                <span><span className="block text-sm font-semibold text-fg">{t.name}</span><span className="text-xs text-muted">{t.description}</span></span>
-              </button>
-            ))}
-          </div>
-        </Section>
       </div>
 
       {dirty && (

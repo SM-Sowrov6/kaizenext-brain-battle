@@ -1,4 +1,3 @@
-export type ThemeName = 'midnight' | 'kaizenext' | 'uttirno'
 export type EventDay = 1 | 2
 export type DayScope = EventDay | 'all'
 
@@ -21,7 +20,6 @@ export interface PublicConfig {
     competitionInfo: string
     rules: string[]
     prizes: Prize[]
-    defaultTheme: ThemeName
   }
   quiz: {
     title: string
@@ -158,7 +156,6 @@ export interface EventSettings {
   competitionInfo: string
   rules: string[]
   prizes: Prize[]
-  defaultTheme: ThemeName
 }
 
 export interface QuizSettings {

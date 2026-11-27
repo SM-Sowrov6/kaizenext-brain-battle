@@ -27,5 +27,4 @@ export const storage = {
 export const KEYS = {
   session: 'kbb.session',
   answers: (attemptId: string) => `kbb.answers.${attemptId}`,
-  theme: 'kbb.theme',
 }

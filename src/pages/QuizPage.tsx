@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Dialog } from '@/components/ui/Dialog'
 import { ErrorState, PageLoader } from '@/components/ui/Feedback'
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher'
 import { AmbientBackground } from '@/layouts/PublicLayout'
 import { OptionButton, QuestionGrid, SaveIndicator, SegmentedProgress, TimerPill, type SaveStatus } from '@/components/quiz/QuizParts'
 import type { AttemptState, SubmitReason } from '@/types'
@@ -286,7 +285,6 @@ export default function QuizPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeSwitcher compact className="hidden md:flex" />
             <TimerPill remaining={remaining} total={attempt.durationSeconds} />
           </div>
         </div>

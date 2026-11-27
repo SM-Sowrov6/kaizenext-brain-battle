@@ -94,7 +94,6 @@ function seed(): DemoDB {
         { place: '2nd Place', title: 'Runner-up Prize', description: 'Second highest score of each day.' },
         { place: '3rd Place', title: 'Third Place Prize', description: 'Third highest score of each day.' },
       ],
-      defaultTheme: 'midnight',
     },
   }
   // Demo finishers so the leaderboard is not empty in development.
@@ -215,7 +214,7 @@ function publicConfig(db: DemoDB): PublicConfig {
     event: {
       name: s.eventName, venue: s.venue, day1Date: s.day1Date, day2Date: s.day2Date, activeDay: s.activeDay,
       quizEnabled: s.quizEnabled && count > 0, registrationEnabled: s.registrationEnabled,
-      competitionInfo: s.competitionInfo, rules: s.rules, prizes: s.prizes, defaultTheme: s.defaultTheme,
+      competitionInfo: s.competitionInfo, rules: s.rules, prizes: s.prizes,
     },
     quiz: {
       title: db.quiz.title, questionCount: count, durationSeconds: db.quiz.durationSeconds,

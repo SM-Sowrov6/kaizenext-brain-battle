@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { FlaskConical } from 'lucide-react'
 import { env } from '@/lib/env'
-import { ThemeProvider } from '@/hooks/useTheme'
 import { ConfigProvider } from '@/hooks/useConfig'
 import { ToastProvider } from '@/components/ui/Toast'
 import { PageLoader } from '@/components/ui/Feedback'
@@ -36,14 +35,11 @@ function DemoBadge() {
 export default function App() {
   if (env.misconfigured) {
     return (
-      <ThemeProvider>
-        <ConfigMissingPage />
-      </ThemeProvider>
+      <ConfigMissingPage />
     )
   }
   return (
-    <ThemeProvider>
-      <ToastProvider>
+    <ToastProvider>
         <ConfigProvider>
           <BrowserRouter>
             <Suspense fallback={<PageLoader />}>
@@ -65,7 +61,6 @@ export default function App() {
             <DemoBadge />
           </BrowserRouter>
         </ConfigProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    </ToastProvider>
   )
 }

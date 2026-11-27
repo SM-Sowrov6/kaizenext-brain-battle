@@ -40,7 +40,7 @@ async function activeQuizId(): Promise<string> {
 const mapSettings = (r: Row): EventSettings => ({
   eventName: r.event_name, venue: r.venue, day1Date: r.day1_date, day2Date: r.day2_date,
   activeDay: r.active_day, quizEnabled: r.quiz_enabled, registrationEnabled: r.registration_enabled,
-  competitionInfo: r.competition_info, rules: r.rules ?? [], prizes: r.prizes ?? [], defaultTheme: r.default_theme,
+  competitionInfo: r.competition_info, rules: r.rules ?? [], prizes: r.prizes ?? [],
 })
 
 const mapQuiz = (r: Row): QuizSettings => ({
@@ -160,7 +160,6 @@ export const supabaseAdminApi: AdminApi = {
     if (patch.competitionInfo !== undefined) row.competition_info = patch.competitionInfo
     if (patch.rules !== undefined) row.rules = patch.rules
     if (patch.prizes !== undefined) row.prizes = patch.prizes
-    if (patch.defaultTheme !== undefined) row.default_theme = patch.defaultTheme
     const { data, error } = await getSupabase().from('event_settings').update(row).eq('id', 1).select('*').single()
     if (error) fail(error)
     return mapSettings(data)

@@ -11,7 +11,6 @@ import { cn } from '@/lib/cn'
 import { Wordmark } from '@/components/ui/Brand'
 import { LiveDot } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher'
 import { QrCode, publicSiteUrl } from '@/components/QrCode'
 import { AmbientBackground } from '@/layouts/PublicLayout'
 import type { DayScope, LeaderboardEntry, LeaderboardResponse } from '@/types'
@@ -131,7 +130,6 @@ export default function LeaderboardPage() {
             {stale ? <WifiOff className="size-3.5" /> : <LiveDot />}
             {stale ? 'Reconnecting…' : data ? `Live · ${timeAgo(data.updatedAt)}` : 'Connecting…'}
           </span>
-          {!fullscreen && <ThemeSwitcher compact />}
           <button
             onClick={toggleFullscreen}
             aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'}

@@ -169,7 +169,7 @@ function ResultView({ r }: { r: AttemptResult }) {
           <LinkButton to="/" size="lg" variant="secondary" block icon={<Home className="size-5" />}>Back to home</LinkButton>
         </div>
         <p className="mt-6 text-center text-xs leading-relaxed text-faint">
-          Winners are drawn at random from the day's top scorers at the Kaizenext booth. Keep your registered email handy to claim your prize.
+          The highest scores win; ties are decided by lucky draw. Winners are contacted on their registered email or phone.
         </p>
       </motion.div>
     </div>
@@ -190,25 +190,25 @@ function DrawStatus({ r, prizes }: { r: AttemptResult; prizes: Prize[] }) {
     const prize = prizes[wonPosition - 1]
     return (
       <StatusBox tone="win" icon={<PartyPopper />} title={`You won ${prize?.place ? `the ${prize.place}` : 'a prize'}!`}>
-        Your name was drawn{prize?.title ? <> for the <span className="font-semibold text-fg">{prize.title}</span></> : null}. Visit the Kaizenext booth with your registered email to claim it.
+        Congratulations{prize?.title ? <>, you won the <span className="font-semibold text-fg">{prize.title}</span></> : null}! We'll contact you on your registered email or phone to deliver it.
       </StatusBox>
     )
   }
   if (inPool) {
     const others = poolSize - 1
     return (
-      <StatusBox tone="win" icon={<Ticket />} title={`You're in the Day ${r.eventDay} lucky draw!`}>
-        You hit today's top score{others > 0 ? <>, along with {others} other{others === 1 ? '' : 's'}</> : null}. Winners are drawn at random at the Kaizenext booth, so stay close!
-        <span className="mt-1.5 block text-xs text-faint">If someone beats this score today, the draw moves to the new top score.</span>
+      <StatusBox tone="win" icon={<Ticket />} title="You have the top score!">
+        You're on the campaign's top score{others > 0 ? <>, along with {others} other{others === 1 ? '' : 's'}</> : null}. The highest scores win; if players tie, winners are picked by lucky draw when results are announced.
+        <span className="mt-1.5 block text-xs text-faint">The campaign is still running, so someone may still beat this score.</span>
       </StatusBox>
     )
   }
   return (
-    <StatusBox tone="neutral" icon={<Trophy />} title="Today's lucky draw">
+    <StatusBox tone="neutral" icon={<Trophy />} title="How winners are chosen">
       {topScore != null ? (
-        <>The lucky draw is for today's top score, currently <span className="font-semibold text-fg">{formatScore(topScore)}/{formatScore(r.maxScore)}</span>. Come say hi at the Kaizenext booth!</>
+        <>The current top score is <span className="font-semibold text-fg">{formatScore(topScore)}/{formatScore(r.maxScore)}</span>. The highest scores win the prizes. Thanks for playing!</>
       ) : (
-        <>Today's lucky draw is for the top scorers. Come say hi at the Kaizenext booth!</>
+        <>The highest scores win the prizes. Thanks for playing!</>
       )}
     </StatusBox>
   )

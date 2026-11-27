@@ -31,7 +31,7 @@ interface DemoAttempt {
   violationCount?: number; violations?: { id: string; kind: string; at: string }[]; lastViolationAt?: string | null
   answers: Record<string, { optionId: string; answeredAt: string; isCorrect?: boolean }>
 }
-interface DemoWinner { id: string; day: EventDay; position: number; attemptId: string; drawnAt: string; voidedAt: string | null }
+interface DemoWinner { id: string; day: number; position: number; attemptId: string; drawnAt: string; voidedAt: string | null }
 interface DemoDB { settings: EventSettings; quiz: QuizSettings; questions: DemoQuestion[]; participants: DemoParticipant[]; attempts: DemoAttempt[]; winners: DemoWinner[] }
 
 const uid = () => crypto.randomUUID()
@@ -82,6 +82,7 @@ function seed(): DemoDB {
     quiz, questions, participants: [], attempts: [], winners: [],
     settings: {
       eventName: 'DIU Job Utsob 2026', venue: 'Daffodil International University',
+      campaignStart: new Date(now - 86_400_000).toISOString(), campaignEnd: new Date(now + 6 * 86_400_000).toISOString(), resultsDate: '2026-12-05',
       day1Date: '2026-11-28', day2Date: '2026-11-29', activeDay: 1, quizEnabled: true, registrationEnabled: true,
       competitionInfo: 'Answer quick-fire questions on technology, AI, careers and general knowledge. The highest score wins — if scores tie, the fastest finisher takes the lead.',
       rules: [
@@ -145,6 +146,9 @@ function load(): DemoDB {
       const db = JSON.parse(raw) as DemoDB
       db.winners ??= []
       db.quiz.maxViolations ??= 2
+      db.settings.campaignStart ??= new Date(Date.now() - 86_400_000).toISOString()
+      db.settings.campaignEnd ??= new Date(Date.now() + 6 * 86_400_000).toISOString()
+      db.settings.resultsDate ??= '2026-12-05'
       return db
     }
   } catch { /* reseed */ }
@@ -215,13 +219,21 @@ function activePool(db: DemoDB) {
   return db.questions.filter((q) => q.isActive && !q.archived)
 }
 
+function demoStatus(db: DemoDB): 'upcoming' | 'live' | 'ended' {
+  const now = Date.now()
+  if (db.settings.campaignStart && now < Date.parse(db.settings.campaignStart)) return 'upcoming'
+  if (db.settings.campaignEnd && now > Date.parse(db.settings.campaignEnd)) return 'ended'
+  return 'live'
+}
+
 function publicConfig(db: DemoDB): PublicConfig {
   const s = db.settings
   const count = Math.min(db.quiz.questionCount, activePool(db).length)
   return {
     event: {
       name: s.eventName, venue: s.venue, day1Date: s.day1Date, day2Date: s.day2Date, activeDay: s.activeDay,
-      quizEnabled: s.quizEnabled && count > 0, registrationEnabled: s.registrationEnabled,
+      quizEnabled: s.quizEnabled && count > 0 && demoStatus(db) === 'live', registrationEnabled: s.registrationEnabled && demoStatus(db) !== 'ended',
+      campaignStart: s.campaignStart, campaignEnd: s.campaignEnd, resultsDate: s.resultsDate, campaignStatus: demoStatus(db),
       competitionInfo: s.competitionInfo, rules: s.rules, prizes: s.prizes,
     },
     quiz: {
@@ -285,14 +297,14 @@ function applyAnswers(a: DemoAttempt, answers: AnswerMap) {
 }
 
 /** Everyone tied on the day's highest score, oldest qualifier first (mirrors get_draw_pool). */
-function drawPool(db: DemoDB, day: EventDay) {
-  const done = ranked(db, day)
+function drawPool(db: DemoDB, day: number) {
+  const done = ranked(db, day === 0 ? null : (day as EventDay))
   if (!done.length) return []
   const top = Math.max(...done.map((a) => a.score!))
   return done.filter((a) => a.score === top).sort((x, y) => x.submittedAt!.localeCompare(y.submittedAt!))
 }
 
-function activeWinners(db: DemoDB, day: EventDay): DrawWinner[] {
+function activeWinners(db: DemoDB, day: number): DrawWinner[] {
   return db.winners
     .filter((w) => w.day === day && !w.voidedAt)
     .sort((x, y) => x.position - y.position)
@@ -310,8 +322,8 @@ function toPoolEntry(db: DemoDB, a: DemoAttempt): PoolEntry {
 
 function result(db: DemoDB, a: DemoAttempt): AttemptResult {
   const p = db.participants.find((x) => x.id === a.participantId)!
-  const pool = drawPool(db, a.eventDay)
-  const won = activeWinners(db, a.eventDay).find((w) => w.attemptId === a.id)
+  const pool = drawPool(db, 0)
+  const won = activeWinners(db, 0).find((w) => w.attemptId === a.id)
   return {
     attemptId: a.id, fullName: p.fullName, score: a.score!, maxScore: a.maxScore!, correct: a.correct!,
     incorrect: a.incorrect!, unanswered: a.unanswered!, totalQuestions: a.questionIds.length, durationMs: a.durationMs!,
@@ -386,6 +398,8 @@ export const demoParticipantApi: ParticipantApi = {
     const p = auth(db, token)
     const existing = db.attempts.find((x) => x.participantId === p.id)
     if (existing) return existing.status === 'submitted' ? { status: 'submitted', attemptId: existing.id } : attemptState(db, existing)
+    if (demoStatus(db) === 'upcoming') throw new AppError('QUIZ_CLOSED', 'The quiz has not opened yet.')
+    if (demoStatus(db) === 'ended') throw new AppError('QUIZ_CLOSED', 'The Brain Battle campaign has ended. Results will be announced soon.')
     if (!db.settings.quizEnabled) throw new AppError('QUIZ_CLOSED', 'The quiz is not live right now. Please check back shortly.')
     const pool = activePool(db).sort((a, b) => a.position - b.position)
     if (!pool.length) throw new AppError('QUIZ_NOT_READY', 'Questions are not ready yet. Please check back shortly.')
@@ -468,11 +482,11 @@ export const demoParticipantApi: ParticipantApi = {
     return result(db, a)
   },
 
-  async leaderboard(day) {
+  async leaderboard() {
     await delay(100)
     const db = load()
     sweepExpired(db)
-    const d: EventDay = day ?? db.settings.activeDay
+    const d = 0
     const pool = drawPool(db, d)
     return {
       day: d,
@@ -481,11 +495,10 @@ export const demoParticipantApi: ParticipantApi = {
       poolTotal: pool.length,
       pool: pool.slice().reverse().slice(0, 120).map((a) => toPoolEntry(db, a)),
       winners: activeWinners(db, d),
-      stats: {
-        participants: db.participants.filter((p) => p.eventDay === d).length,
-        completed: ranked(db, d).length,
-      },
+      stats: { participants: db.participants.length, completed: ranked(db, null).length },
       activeDay: db.settings.activeDay,
+      campaignStart: db.settings.campaignStart, campaignEnd: db.settings.campaignEnd,
+      resultsDate: db.settings.resultsDate, campaignStatus: demoStatus(db),
       updatedAt: new Date().toISOString(),
     }
   },
@@ -640,8 +653,10 @@ export const demoAdminApi: AdminApi = {
       throw new AppError('DRAW', 'This prize has already been drawn. Void it first to redraw.')
     }
     const taken = new Set(db.winners.filter((w) => !w.voidedAt).map((w) => w.attemptId))
-    const candidates = drawPool(db, day).filter((a) => !taken.has(a.id))
-    if (!candidates.length) throw new AppError('DRAW', 'No eligible participants left in the pool.')
+    const remaining = ranked(db, day === 0 ? null : (day as EventDay)).filter((a) => !taken.has(a.id))
+    if (!remaining.length) throw new AppError('DRAW', 'No eligible participants left.')
+    const top = Math.max(...remaining.map((a) => a.score!))
+    const candidates = remaining.filter((a) => a.score === top)
     const pick = candidates[crypto.getRandomValues(new Uint32Array(1))[0] % candidates.length]
     const w: DemoWinner = { id: uid(), day, position, attemptId: pick.id, drawnAt: new Date().toISOString(), voidedAt: null }
     db.winners.push(w)

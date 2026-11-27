@@ -13,7 +13,7 @@ import { Badge, Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Switch } from '@/components/ui/Form'
 import { useToast } from '@/components/ui/Toast'
-import type { EventDay, EventSettings } from '@/types'
+import type { EventSettings } from '@/types'
 
 export default function AdminDashboard() {
   useTitle('Admin dashboard')
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
         <Card><ErrorState message={stats.error} onRetry={() => stats.reload()} /></Card>
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard icon={<Users />} label="Total registrations" value={s?.totalRegistrations} sub={s && `Day 1: ${s.byDay[0].registrations} · Day 2: ${s.byDay[1].registrations}`} />
+          <StatCard icon={<Users />} label="Total registrations" value={s?.totalRegistrations} sub="Whole campaign" />
           <StatCard icon={<CheckCircle2 />} label="Completed quizzes" value={s?.totalCompleted} sub={s && `${s.inProgress} in progress now`} />
           <StatCard icon={<Gauge />} label="Average score" value={s ? (s.averageScore == null ? '—' : formatScore(Math.round(s.averageScore * 100) / 100)) : undefined} sub={s?.maxScore != null ? `out of ${formatScore(s.maxScore)}` : 'No finishers yet'} />
           <StatCard icon={<Award />} label="Highest score" value={s ? (s.highestScore == null ? '—' : formatScore(s.highestScore)) : undefined} sub={s && s.flagged > 0 ? `${s.flagged} attempt(s) flagged for review` : 'No flags'} warn={Boolean(s && s.flagged > 0)} />
@@ -83,25 +83,7 @@ export default function AdminDashboard() {
                 checked={settings.data.registrationEnabled}
                 onChange={(v) => void patch({ registrationEnabled: v }, v ? 'Registration opened' : 'Registration closed')}
               />
-              <div>
-                <p className="text-sm font-medium text-fg">Active event day</p>
-                <p className="mt-0.5 text-[0.8125rem] text-muted">New registrations and attempts are recorded under this day.</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {([1, 2] as EventDay[]).map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => settings.data!.activeDay !== d && void patch({ activeDay: d }, `Active day set to Day ${d}`)}
-                      className={cn(
-                        'rounded-xl border px-4 py-3 text-left transition',
-                        settings.data!.activeDay === d ? 'border-accent bg-accent/10' : 'border-line hover:border-line-strong',
-                      )}
-                    >
-                      <p className="text-sm font-semibold text-fg">Day {d}</p>
-                      <p className="text-xs text-muted">{d === 1 ? settings.data!.day1Date : settings.data!.day2Date}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <CampaignCard start={settings.data.campaignStart} end={settings.data.campaignEnd} results={settings.data.resultsDate} />
             </div>
           )}
         </Card>
@@ -147,6 +129,23 @@ export default function AdminDashboard() {
         </Card>
       </div>
     </>
+  )
+}
+
+function CampaignCard({ start, end, results }: { start: string; end: string; results: string }) {
+  const now = Date.now()
+  const status = now < Date.parse(start) ? 'upcoming' : now > Date.parse(end) ? 'ended' : 'live'
+  const days = Math.max(0, Math.ceil((Date.parse(status === 'upcoming' ? start : end) - now) / 86_400_000))
+  const fmt = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+  return (
+    <div className={cn('rounded-xl border p-4', status === 'live' ? 'border-success/40 bg-success/8' : 'border-line')}>
+      <p className="text-sm font-medium text-fg">
+        Campaign {status === 'live' ? 'is live' : status === 'upcoming' ? 'starts soon' : 'has ended'}
+        {status !== 'ended' && <span className="text-muted"> · {days} day{days === 1 ? '' : 's'} {status === 'live' ? 'left' : 'to go'}</span>}
+      </p>
+      <p className="mt-1 text-[0.8125rem] text-muted">{fmt(start)} → {fmt(end)} · results {results}</p>
+      <p className="mt-1 text-xs text-faint">The quiz opens and closes automatically. Change dates in Settings.</p>
+    </div>
   )
 }
 

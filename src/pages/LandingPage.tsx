@@ -52,7 +52,7 @@ export default function LandingPage() {
                 {live ? <LiveDot /> : <span className="size-1.5 rounded-full bg-faint" />}
                 {loading ? 'Checking…' : live ? 'Live now' : 'Opening soon'}
               </span>
-              {ev ? `${ev.name} · ${eventRange(ev.day1Date, ev.day2Date)}` : 'DIU Job Utsob 2026 · Nov 28–29'}
+              {ev?.campaignStart && ev.campaignEnd ? `${ev.name} · ${eventRange(dhakaDay(ev.campaignStart), dhakaDay(ev.campaignEnd))}` : ev ? ev.name : 'Brain Battle · Nov 28 – Dec 4'}
             </span>
           </motion.div>
 
@@ -67,7 +67,7 @@ export default function LandingPage() {
 
           <motion.p variants={fadeUp} initial="hidden" animate="show" custom={2} className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg lg:mx-0">
             Scan, register in 30 seconds, and race the clock through a quick-fire quiz on tech, AI and careers.
-            Hit the day's top score to enter the lucky draw at the Kaizenext booth and win a prize.
+            The 3 highest scores win prizes. If players tie, winners are picked by lucky draw.
           </motion.p>
 
           <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -144,7 +144,7 @@ export default function LandingPage() {
             { icon: <QrCode />, title: 'Scan the QR', text: 'Point your camera at the code at the Kaizenext booth.' },
             { icon: <UserPlus />, title: 'Register fast', text: 'Name, email, university, department. That\'s it.' },
             { icon: <Brain />, title: 'Beat the clock', text: `${quiz?.questionCount ?? 10} questions. One shot. Every second counts.` },
-            { icon: <Ticket />, title: 'Enter the draw', text: "Everyone with the day's top score goes into a lucky draw for prizes." },
+            { icon: <Ticket />, title: 'Win prizes', text: 'The highest scores win. Ties are decided by lucky draw.' },
           ].map((s, i) => (
             <Reveal key={s.title} i={i}>
               <Card className="group relative h-full overflow-hidden p-6 transition-[transform,border-color] duration-300 hover:-translate-y-1 hover:border-line-strong">
@@ -195,17 +195,23 @@ export default function LandingPage() {
               </div>
               <div className="mt-6 rounded-2xl border border-line bg-bg-soft/60 p-4">
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-faint">
-                  <CalendarDays className="size-3.5" /> Event days
+                  <CalendarDays className="size-3.5" /> Campaign
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  {ev ? (
-                    ([1, 2] as const).map((d) => (
-                      <div key={d} className={cn('rounded-xl border px-3 py-2.5', ev.activeDay === d ? 'border-accent/50 bg-accent/8' : 'border-line')}>
-                        <p className="text-sm font-semibold text-fg">Day {d}</p>
-                        <p className="text-xs text-muted">{formatDate(d === 1 ? ev.day1Date : ev.day2Date, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                        {ev.activeDay === d && <Badge tone="accent" className="mt-2">Today</Badge>}
+                  {ev?.campaignStart && ev.campaignEnd ? (
+                    <>
+                      <div className={cn('rounded-xl border px-3 py-2.5', ev.campaignStatus === 'live' ? 'border-accent/50 bg-accent/8' : 'border-line')}>
+                        <p className="text-sm font-semibold text-fg">{formatDate(dhakaDay(ev.campaignStart))} – {formatDate(dhakaDay(ev.campaignEnd))}</p>
+                        <p className="text-xs text-muted">7 days to play</p>
+                        {ev.campaignStatus === 'live' && <Badge tone="accent" className="mt-2">Live now</Badge>}
+                        {ev.campaignStatus === 'upcoming' && <Badge className="mt-2">Starting soon</Badge>}
+                        {ev.campaignStatus === 'ended' && <Badge className="mt-2">Ended</Badge>}
                       </div>
-                    ))
+                      <div className="rounded-xl border border-line px-3 py-2.5">
+                        <p className="text-sm font-semibold text-fg">{ev.resultsDate ? formatDate(ev.resultsDate, { month: 'short', day: 'numeric' }) : 'TBA'}</p>
+                        <p className="text-xs text-muted">Results announced</p>
+                      </div>
+                    </>
                   ) : (
                     <><Skeleton className="h-16" /><Skeleton className="h-16" /></>
                   )}
@@ -275,6 +281,11 @@ export default function LandingPage() {
       </section>
     </>
   )
+}
+
+/** Calendar day (YYYY-MM-DD) of a timestamp in Dhaka time. */
+function dhakaDay(iso: string) {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' })
 }
 
 function FormatTile({ icon, label, value }: { icon: ReactNode; label: string; value: string | null }) {

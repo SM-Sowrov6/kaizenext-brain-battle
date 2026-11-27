@@ -1,6 +1,6 @@
 import type {
   AdminParticipant, AdminQuestion, AdminStats, AttemptAnswerDetail, AttemptResult, BoardResponse,
-  DrawWinner, EventDay, EventSettings, ParticipantSession, PublicConfig, QuestionDraft, QuizSettings,
+  DrawWinner, EventSettings, ParticipantSession, PublicConfig, QuestionDraft, QuizSettings,
   RegistrationInput, SessionInfo, StartResponse, SubmitReason, ViolationKind, ViolationResponse,
 } from '@/types'
 
@@ -18,8 +18,8 @@ export interface ParticipantApi {
   /** Fire-and-forget report that survives the page being hidden or closed (sendBeacon). */
   beaconViolation(token: string, attemptId: string, kind: ViolationKind, eventId: string): void
   result(token: string): Promise<AttemptResult>
-  /** Booth board for a day (defaults to the active day): draw pool + winners, no ranks. */
-  leaderboard(day?: EventDay): Promise<BoardResponse>
+  /** Public board for the whole campaign: top-score pool + winners, no ranks. */
+  leaderboard(): Promise<BoardResponse>
 }
 
 export interface AdminUser {
@@ -58,10 +58,11 @@ export interface AdminApi {
   deleteParticipant(id: string): Promise<void>
   setDisqualified(attemptId: string, value: boolean): Promise<void>
   resetData(confirm: string): Promise<number>
-  getDrawPool(day: EventDay): Promise<AdminPoolEntry[]>
-  getDrawWinners(day: EventDay): Promise<DrawWinner[]>
-  /** Server picks a random winner for the prize position from the current pool. */
-  drawWinner(day: EventDay, position: number): Promise<DrawWinner>
+  /** day 0 = the whole campaign */
+  getDrawPool(day: number): Promise<AdminPoolEntry[]>
+  getDrawWinners(day: number): Promise<DrawWinner[]>
+  /** Server picks a random winner among the highest remaining score (ties → lottery). */
+  drawWinner(day: number, position: number): Promise<DrawWinner>
   /** Marks a winner as voided (kept for audit) so the position can be redrawn. */
   voidWinner(id: string): Promise<void>
 }

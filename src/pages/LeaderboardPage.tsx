@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Gift, Maximize2, Minimize2, PartyPopper, Sparkles, Ticket, Trophy, Users, WifiOff } from 'lucide-react'
+import { CalendarClock, CheckCircle2, Gift, Maximize2, Minimize2, PartyPopper, Sparkles, Ticket, Trophy, Users, WifiOff } from 'lucide-react'
 import { api, errorMessage } from '@/services'
 import { useConfig } from '@/hooks/useConfig'
 import { useInterval, useTitle } from '@/hooks/misc'
-import { formatScore, initials, timeAgo } from '@/lib/format'
+import { formatDate, formatScore, initials, timeAgo } from '@/lib/format'
 import { storage } from '@/lib/storage'
 import { cn } from '@/lib/cn'
 import { KaizenextLogo, Wordmark } from '@/components/ui/Brand'
@@ -13,7 +12,7 @@ import { LiveDot } from '@/components/ui/Card'
 import { ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { QrCode, publicSiteUrl } from '@/components/QrCode'
 import { AmbientBackground } from '@/layouts/PublicLayout'
-import type { BoardResponse, DrawWinner, EventDay, PoolEntry, Prize } from '@/types'
+import type { BoardResponse, DrawWinner, PoolEntry, Prize } from '@/types'
 
 const POLL_MS = 5000
 
@@ -34,18 +33,28 @@ function useBoothScale() {
   }, [])
 }
 
-const parseDay = (v: string | null): EventDay | null => (v === '1' ? 1 : v === '2' ? 2 : null)
+/** "3d 04h 12m" until the target, or null once passed. */
+function useCountdown(target?: string | null) {
+  const [now, setNow] = useState(Date.now())
+  useInterval(() => setNow(Date.now()), 1000)
+  if (!target) return null
+  const ms = Date.parse(target) - now
+  if (Number.isNaN(ms) || ms <= 0) return null
+  const d = Math.floor(ms / 86_400_000)
+  const h = Math.floor((ms % 86_400_000) / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  const s = Math.floor((ms % 60_000) / 1000)
+  return { d, h, m, s }
+}
 
 /**
- * Public booth board. Winners are chosen by lucky draw, so this screen shows
- * the pool of everyone tied on the day's top score — never ranks or times.
+ * Public campaign board. Ranks are never shown: it lists everyone tied on the
+ * campaign's top score. Winners = highest scores, ties decided by lucky draw.
  */
 export default function LeaderboardPage() {
-  useTitle('Lucky draw')
+  useTitle('Live board')
   useBoothScale()
-  const [params, setParams] = useSearchParams()
   const { config } = useConfig()
-  const [day, setDayState] = useState<EventDay | null>(parseDay(params.get('day')))
   const [data, setData] = useState<BoardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
@@ -54,21 +63,13 @@ export default function LeaderboardPage() {
   const myAttempt = storage.get<string | null>('kbb.myAttempt', null)
   const loadingRef = useRef(false)
 
-  const effectiveDay: EventDay = day ?? config?.event.activeDay ?? 1
-
-  const setDay = (d: EventDay) => {
-    setDayState(d)
-    const next = new URLSearchParams(params)
-    next.set('day', String(d))
-    setParams(next, { replace: true })
-  }
-
   const load = useCallback(async () => {
     if (loadingRef.current) return
     loadingRef.current = true
     try {
-      const res = await api.leaderboard(effectiveDay)
-      setData({ ...res, pool: res.pool ?? [], winners: res.winners ?? [], poolTotal: res.poolTotal ?? 0, topScore: res.topScore ?? null, maxScore: res.maxScore ?? null, day: res.day ?? effectiveDay })
+      const res = await api.leaderboard()
+      // tolerate an older backend response shape instead of crashing
+      setData({ ...res, pool: res.pool ?? [], winners: res.winners ?? [], poolTotal: res.poolTotal ?? 0, topScore: res.topScore ?? null, maxScore: res.maxScore ?? null, day: res.day ?? 0 })
       setError(null)
       setStale(false)
     } catch (e) {
@@ -77,13 +78,9 @@ export default function LeaderboardPage() {
     } finally {
       loadingRef.current = false
     }
-  }, [effectiveDay])
+  }, [])
 
-  useEffect(() => {
-    setData((d) => (d && d.day !== effectiveDay ? null : d))
-    void load()
-  }, [load, effectiveDay])
-
+  useEffect(() => { void load() }, [load])
   useInterval(() => void load(), POLL_MS, { pauseHidden: true })
   useInterval(() => forceTick((x) => x + 1), 1000)
 
@@ -100,6 +97,12 @@ export default function LeaderboardPage() {
 
   const prizes = config?.event.prizes ?? []
   const siteUrl = publicSiteUrl()
+  const campaign = {
+    start: data?.campaignStart ?? config?.event.campaignStart,
+    end: data?.campaignEnd ?? config?.event.campaignEnd,
+    results: data?.resultsDate ?? config?.event.resultsDate,
+    status: data?.campaignStatus ?? config?.event.campaignStatus,
+  }
 
   return (
     <div className="relative min-h-dvh">
@@ -111,8 +114,10 @@ export default function LeaderboardPage() {
           <Wordmark />
           <span className="hidden h-8 w-px bg-line-strong sm:block" />
           <div className="hidden sm:block">
-            <p className="font-headline text-lg leading-none text-fg">Lucky Draw</p>
-            <p className="mt-1 text-xs text-faint">{config?.event.name ?? 'DIU Job Utsob 2026'}</p>
+            <p className="font-headline text-lg leading-none text-fg">Live board</p>
+            <p className="mt-1 text-xs text-faint">
+              {campaign.start && campaign.end ? `${formatDate(campaign.start)} – ${formatDate(campaign.end, { month: 'short', day: 'numeric', year: 'numeric' })}` : (config?.event.name ?? 'Brain Battle')}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -138,36 +143,15 @@ export default function LeaderboardPage() {
 
       <main className="mx-auto grid max-w-[1500px] grid-cols-1 gap-6 px-4 pt-6 pb-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8 lg:pt-8">
         <section className="min-w-0">
-          {/* Day selector */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div role="tablist" aria-label="Event day" className="flex rounded-2xl border border-line bg-surface/70 p-1 backdrop-blur">
-              {([1, 2] as EventDay[]).map((d) => {
-                const active = effectiveDay === d
-                return (
-                  <button
-                    key={d}
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setDay(d)}
-                    className={cn('relative rounded-xl px-5 py-2 text-sm font-semibold transition-colors', active ? 'text-fg' : 'text-faint hover:text-muted')}
-                  >
-                    {active && <motion.span layoutId="lb-tab" className="absolute inset-0 rounded-xl border border-line-strong bg-surface-3" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
-                    <span className="relative">Day {d}</span>
-                    {d === config?.event.activeDay && <span className="relative ml-1.5 inline-block size-1.5 -translate-y-0.5 rounded-full bg-success" title="Today" />}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="text-xs text-faint">Top scorers enter the draw · winners picked at random</p>
-          </div>
+          <CampaignBar start={campaign.start} end={campaign.end} results={campaign.results} status={campaign.status} />
 
           {!data && !error && <BoardSkeleton />}
           {!data && error && <div className="card-surface mt-6 rounded-3xl"><ErrorState title="Board unavailable" message={error} onRetry={load} /></div>}
 
           {data && (
             <>
-              <AnimatePresence>{data.winners.length > 0 && <Winners winners={data.winners} prizes={prizes} day={data.day} myAttempt={myAttempt} />}</AnimatePresence>
-              <PoolHero data={data} />
+              <AnimatePresence>{data.winners.length > 0 && <Winners winners={data.winners} prizes={prizes} myAttempt={myAttempt} />}</AnimatePresence>
+              <PoolHero data={data} results={campaign.results} />
               {data.pool.length > 0 && <PoolNames pool={data.pool} total={data.poolTotal} myAttempt={myAttempt} winners={data.winners} />}
             </>
           )}
@@ -188,9 +172,9 @@ export default function LeaderboardPage() {
           <div className="card-surface rounded-3xl p-5 text-sm sm:col-span-2 lg:col-span-1">
             <p className="font-semibold text-fg">How winners are chosen</p>
             <ol className="mt-3 space-y-2.5 text-muted">
-              <li className="flex gap-2.5"><span className="font-mono text-accent">1</span> Play the quiz once</li>
-              <li className="flex gap-2.5"><span className="font-mono text-accent">2</span> Everyone with the day's top score enters the draw</li>
-              <li className="flex gap-2.5"><span className="font-mono text-accent">3</span> Winners are drawn at random at the Kaizenext booth</li>
+              <li className="flex gap-2.5"><span className="font-mono text-accent">1</span> Play the quiz once during the campaign</li>
+              <li className="flex gap-2.5"><span className="font-mono text-accent">2</span> The highest scores win the prizes</li>
+              <li className="flex gap-2.5"><span className="font-mono text-accent">3</span> If players tie on score, winners are picked by lucky draw{campaign.results ? ` on ${formatDate(campaign.results, { day: 'numeric', month: 'long' })}` : ''}</li>
             </ol>
           </div>
         </aside>
@@ -199,7 +183,36 @@ export default function LeaderboardPage() {
   )
 }
 
-function PoolHero({ data }: { data: BoardResponse }) {
+function CampaignBar({ start, end, results, status }: { start?: string | null; end?: string | null; results?: string | null; status?: string }) {
+  const toStart = useCountdown(status === 'upcoming' ? start : null)
+  const toEnd = useCountdown(status === 'live' ? end : null)
+  const cd = toStart ?? toEnd
+  const label = status === 'upcoming' ? 'Quiz opens in' : status === 'live' ? 'Campaign ends in' : null
+  return (
+    <div className="card-surface flex flex-wrap items-center justify-between gap-4 rounded-2xl px-4 py-3 sm:px-5">
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <CalendarClock className="size-4 shrink-0 text-accent" />
+        {status === 'ended' ? (
+          <span>The campaign has ended{results ? <>. Results on <span className="font-semibold text-fg">{formatDate(results, { day: 'numeric', month: 'long' })}</span></> : ''}.</span>
+        ) : (
+          <span>{label ?? 'Campaign'}</span>
+        )}
+      </p>
+      {cd && (
+        <div className="flex items-baseline gap-3 font-mono tabular text-fg" aria-live="off">
+          {[['d', cd.d], ['h', cd.h], ['m', cd.m], ['s', cd.s]].map(([u, v]) => (
+            <span key={u as string} className="flex items-baseline gap-0.5">
+              <span className="text-xl font-semibold sm:text-2xl">{String(v).padStart(2, '0')}</span>
+              <span className="text-xs text-faint">{u}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PoolHero({ data, results }: { data: BoardResponse; results?: string | null }) {
   const empty = data.poolTotal === 0
   return (
     <div className="card-surface relative mt-6 overflow-hidden rounded-3xl px-6 py-10 text-center sm:px-10 sm:py-14">
@@ -209,8 +222,8 @@ function PoolHero({ data }: { data: BoardResponse }) {
       </div>
       {empty ? (
         <>
-          <h1 className="font-headline relative mt-6 text-3xl text-fg sm:text-5xl">The draw is wide open</h1>
-          <p className="relative mx-auto mt-3 max-w-md text-muted">No one has finished on Day {data.day} yet. Scan the QR code and set the score to beat!</p>
+          <h1 className="font-headline relative mt-6 text-3xl text-fg sm:text-5xl">The top spot is wide open</h1>
+          <p className="relative mx-auto mt-3 max-w-md text-muted">No one has finished yet. Scan the QR code and set the score to beat!</p>
         </>
       ) : (
         <>
@@ -218,12 +231,11 @@ function PoolHero({ data }: { data: BoardResponse }) {
             {data.poolTotal}
           </motion.p>
           <h1 className="font-headline relative mt-2 text-2xl text-fg sm:text-4xl">
-            {data.poolTotal === 1 ? 'player is' : 'players are'} in the Day {data.day} lucky draw
+            {data.poolTotal === 1 ? 'player holds' : 'players share'} the top score
           </h1>
           <p className="relative mx-auto mt-3 max-w-lg text-muted">
-            Everyone who scored the day's top score of{' '}
-            <span className="font-semibold text-fg">{formatScore(data.topScore)}/{formatScore(data.maxScore)}</span> is in.
-            Beat it, and the draw starts fresh with you!
+            Current top score: <span className="font-semibold text-fg">{formatScore(data.topScore)}/{formatScore(data.maxScore)}</span>.
+            The highest scores win; ties are decided by lucky draw{results ? ` on ${formatDate(results, { day: 'numeric', month: 'long' })}` : ''}.
           </p>
         </>
       )}
@@ -236,7 +248,7 @@ function PoolNames({ pool, total, myAttempt, winners }: { pool: PoolEntry[]; tot
   return (
     <div className="mt-6">
       <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-faint">
-        <Sparkles className="size-3.5 text-accent" /> In the draw
+        <Sparkles className="size-3.5 text-accent" /> On the top score
       </p>
       <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
         <AnimatePresence initial={false}>
@@ -266,16 +278,16 @@ function PoolNames({ pool, total, myAttempt, winners }: { pool: PoolEntry[]; tot
           })}
         </AnimatePresence>
       </ul>
-      {total > pool.length && <p className="mt-3 text-center text-sm text-faint">+ {total - pool.length} more in the draw</p>}
+      {total > pool.length && <p className="mt-3 text-center text-sm text-faint">+ {total - pool.length} more on the top score</p>}
     </div>
   )
 }
 
-function Winners({ winners, prizes, day, myAttempt }: { winners: DrawWinner[]; prizes: Prize[]; day: EventDay; myAttempt: string | null }) {
+function Winners({ winners, prizes, myAttempt }: { winners: DrawWinner[]; prizes: Prize[]; myAttempt: string | null }) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-6">
       <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-        <PartyPopper className="size-4" /> Day {day} winners
+        <PartyPopper className="size-4" /> Winners
       </p>
       <div className={cn('grid grid-cols-1 gap-3', winners.length >= 3 ? 'md:grid-cols-3' : winners.length === 2 ? 'md:grid-cols-2' : '')}>
         {winners.map((w, i) => {
@@ -297,7 +309,7 @@ function Winners({ winners, prizes, day, myAttempt }: { winners: DrawWinner[]; p
               <p className="font-headline mt-1.5 truncate text-xl text-fg sm:text-2xl">{w.name}</p>
               <p className="truncate text-xs text-faint">{w.department}</p>
               {prize?.title && <p className="mt-2 text-sm text-muted">{prize.title}</p>}
-              {w.attemptId === myAttempt && <p className="mt-2 text-xs font-bold text-accent">That's you! Visit the Kaizenext booth.</p>}
+              {w.attemptId === myAttempt && <p className="mt-2 text-xs font-bold text-accent">That's you! We'll contact you to deliver your prize.</p>}
             </motion.div>
           )
         })}

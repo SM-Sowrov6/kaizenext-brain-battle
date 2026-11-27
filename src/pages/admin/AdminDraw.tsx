@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/Card'
 import { Dialog } from '@/components/ui/Dialog'
 import { Alert, EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { useToast } from '@/components/ui/Toast'
-import type { DrawWinner, EventDay, Prize } from '@/types'
+import type { DrawWinner, Prize } from '@/types'
 
 /**
  * Admin lucky draw. The winner is chosen by the server (admin_draw_winner);
@@ -22,8 +22,7 @@ export default function AdminDraw() {
   useTitle('Lucky draw')
   const toast = useToast()
   const settings = useAsync(() => adminApi.getSettings())
-  const [day, setDay] = useState<EventDay | null>(null)
-  const effectiveDay: EventDay = day ?? settings.data?.activeDay ?? 1
+  const effectiveDay = 0 // the whole campaign
   const pool = useAsync(() => adminApi.getDrawPool(effectiveDay), [effectiveDay])
   const winners = useAsync(() => adminApi.getDrawWinners(effectiveDay), [effectiveDay])
   const [drawing, setDrawing] = useState<{ position: number; prize?: Prize } | null>(null)
@@ -71,7 +70,7 @@ export default function AdminDraw() {
 
   function exportPool() {
     downloadFile(
-      `brain-battle-draw-pool-day${effectiveDay}.csv`,
+      'brain-battle-top-score-pool.csv',
       toCsv(['name', 'email', 'phone', 'university', 'department', 'score', 'max_score', 'submitted_at', 'won'],
         poolRows.map((p) => {
           const w = winners.data?.find((x) => x.attemptId === p.attemptId)
@@ -84,26 +83,20 @@ export default function AdminDraw() {
     <>
       <PageHeader
         title="Lucky draw"
-        description="Everyone with the day's highest score is in the pool. The server picks winners at random."
+        description="Highest scores win. Each draw picks at random among the highest remaining score, so ties are settled fairly."
         actions={
           <>
-            <LinkButton to={`/leaderboard?day=${effectiveDay}`} external variant="secondary" size="sm" icon={<ExternalLink className="size-4" />}>Booth screen</LinkButton>
+            <LinkButton to="/leaderboard" external variant="secondary" size="sm" icon={<ExternalLink className="size-4" />}>Booth screen</LinkButton>
             <Button variant="secondary" size="sm" icon={<Download className="size-4" />} disabled={!poolRows.length} onClick={exportPool}>Export pool</Button>
           </>
         }
       />
 
-      <div className="mb-5 flex rounded-xl border border-line bg-surface p-1 sm:w-fit">
-        {([1, 2] as EventDay[]).map((d) => (
-          <button key={d} onClick={() => setDay(d)} className={cn('flex-1 rounded-lg px-5 py-2 text-sm font-semibold transition sm:flex-none', effectiveDay === d ? 'bg-surface-3 text-fg' : 'text-faint hover:text-muted')}>
-            Day {d}{settings.data?.activeDay === d ? ' · today' : ''}
-          </button>
-        ))}
-      </div>
 
-      <Alert tone="info" className="mb-6" title="Draw after the quiz closes for the day">
-        The pool changes whenever someone beats the top score. Turn off “Quiz live” on the Dashboard first, then draw.
-        Winners appear on the booth screen instantly.
+      <Alert tone="info" className="mb-6" title="Draw after the campaign ends">
+        Scores can still change while the campaign is live. Draw once it has closed (it closes automatically at the end date).
+        If fewer people share the top score than there are prizes, the next draw moves to the next-highest score.
+        Winners appear on the public board instantly.
       </Alert>
 
       {/* Prizes */}
@@ -150,7 +143,7 @@ export default function AdminDraw() {
       {/* Pool */}
       <Card className="mt-6 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
-          <h2 className="flex items-center gap-2 font-semibold text-fg"><Ticket className="size-4.5 text-accent" /> Day {effectiveDay} pool</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-fg"><Ticket className="size-4.5 text-accent" /> Top-score pool</h2>
           {poolRows.length > 0 && (
             <p className="text-sm text-muted">
               <span className="font-semibold text-fg">{poolRows.length}</span> player{poolRows.length === 1 ? '' : 's'} on the top score of{' '}
@@ -163,7 +156,7 @@ export default function AdminDraw() {
         ) : pool.error ? (
           <ErrorState message={pool.error} onRetry={() => pool.reload()} />
         ) : poolRows.length === 0 ? (
-          <EmptyState icon={<Users />} title="The pool is empty" description={`No one has completed the quiz on Day ${effectiveDay} yet.`} />
+          <EmptyState icon={<Users />} title="The pool is empty" description="No one has completed the quiz yet." />
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">

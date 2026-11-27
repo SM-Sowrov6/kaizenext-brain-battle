@@ -67,5 +67,5 @@ export const supabaseParticipantApi: ParticipantApi = {
     if (!sent) void fetch(url, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(() => undefined)
   },
   result: (token) => call('result', { token }, { retries: 2 }),
-  leaderboard: (day) => call('leaderboard', { day }, { retries: 1, timeoutMs: 10_000 }),
+  leaderboard: () => call('leaderboard', {}, { retries: 1, timeoutMs: 10_000 }),
 }

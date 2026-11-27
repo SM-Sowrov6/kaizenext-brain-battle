@@ -39,7 +39,8 @@ async function activeQuizId(): Promise<string> {
 }
 
 const mapSettings = (r: Row): EventSettings => ({
-  eventName: r.event_name, venue: r.venue, day1Date: r.day1_date, day2Date: r.day2_date,
+  eventName: r.event_name, venue: r.venue,
+  campaignStart: r.campaign_start, campaignEnd: r.campaign_end, resultsDate: r.results_date, day1Date: r.day1_date, day2Date: r.day2_date,
   activeDay: r.active_day, quizEnabled: r.quiz_enabled, registrationEnabled: r.registration_enabled,
   competitionInfo: r.competition_info, rules: r.rules ?? [], prizes: r.prizes ?? [],
 })
@@ -159,6 +160,9 @@ export const supabaseAdminApi: AdminApi = {
   async updateSettings(patch) {
     const row: Row = {}
     if (patch.eventName !== undefined) row.event_name = patch.eventName
+    if (patch.campaignStart !== undefined) row.campaign_start = patch.campaignStart
+    if (patch.campaignEnd !== undefined) row.campaign_end = patch.campaignEnd
+    if (patch.resultsDate !== undefined) row.results_date = patch.resultsDate
     if (patch.venue !== undefined) row.venue = patch.venue
     if (patch.day1Date !== undefined) row.day1_date = patch.day1Date
     if (patch.day2Date !== undefined) row.day2_date = patch.day2Date

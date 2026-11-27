@@ -126,7 +126,7 @@ export default function InstructionsPage() {
               The timer kept counting while you were away. Jump back in now to make the most of your remaining time.
             </Alert>
           ) : !quizOpen ? (
-            <Alert tone="info" title="The quiz opens soon" className="mb-4">
+            <Alert tone="info" title={config.event.campaignStatus === 'ended' ? 'The campaign has ended' : config.event.campaignStatus === 'upcoming' && config.event.campaignStart ? `The quiz opens on ${new Date(config.event.campaignStart).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}` : 'The quiz opens soon'} className="mb-4">
               <span className="inline-flex items-center gap-2">
                 <LiveDot tone="accent" /> This page will unlock automatically the moment the quiz goes live.
               </span>
@@ -146,7 +146,7 @@ export default function InstructionsPage() {
             {resuming ? 'Resume quiz' : quizOpen ? 'Start Quiz' : 'Waiting for the quiz to open'}
           </Button>
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-faint">
-            <CheckCircle2 className="size-3.5 text-success" /> Registered for Day {info.participant.eventDay} · {info.participant.university}
+            <CheckCircle2 className="size-3.5 text-success" /> Registered · {info.participant.university}
           </p>
         </div>
       </motion.div>

@@ -1,5 +1,14 @@
 export type EventDay = 1 | 2
 export type DayScope = EventDay | 'all'
+export type CampaignStatus = 'upcoming' | 'live' | 'ended'
+
+/** Campaign window shared by config and the public board (ISO timestamps). */
+export interface CampaignInfo {
+  campaignStart?: string | null
+  campaignEnd?: string | null
+  resultsDate?: string | null
+  campaignStatus?: CampaignStatus
+}
 
 export interface Prize {
   place: string
@@ -9,7 +18,7 @@ export interface Prize {
 
 /** Public, non-sensitive configuration shown to participants. */
 export interface PublicConfig {
-  event: {
+  event: CampaignInfo & {
     name: string
     venue: string
     day1Date: string // ISO date (YYYY-MM-DD)
@@ -135,8 +144,9 @@ export interface DrawWinner extends PoolEntry {
 }
 
 /** Public booth board: draw pool + drawn winners. Deliberately no ranks, times or per-person scores. */
-export interface BoardResponse {
-  day: EventDay
+export interface BoardResponse extends CampaignInfo {
+  /** 0 = the whole campaign */
+  day: number
   topScore: number | null
   maxScore: number | null
   poolTotal: number
@@ -176,6 +186,11 @@ export interface QuestionDraft {
 
 export interface EventSettings {
   eventName: string
+  /** ISO timestamps; the quiz opens/closes automatically between them. */
+  campaignStart: string
+  campaignEnd: string
+  /** YYYY-MM-DD */
+  resultsDate: string
   venue: string
   day1Date: string
   day2Date: string

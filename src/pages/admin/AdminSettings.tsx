@@ -49,7 +49,8 @@ export default function AdminSettings() {
     if (!ev || !quiz) return
     setFormError(null)
     if (!ev.eventName.trim()) return setFormError('Event name is required.')
-    if (!ev.day1Date || !ev.day2Date) return setFormError('Both event dates are required.')
+    if (!ev.campaignStart || !ev.campaignEnd) return setFormError('Campaign start and end are required.')
+    if (Date.parse(ev.campaignEnd) <= Date.parse(ev.campaignStart)) return setFormError('Campaign end must be after the start.')
     if (!(quiz.durationSeconds >= 30 && quiz.durationSeconds <= 7200)) return setFormError('Duration must be between 0.5 and 120 minutes.')
     if (!(Number.isInteger(quiz.questionCount) && quiz.questionCount >= 1 && quiz.questionCount <= 200)) return setFormError('Question count must be a whole number between 1 and 200.')
     if (!(quiz.marksPerQuestion > 0)) return setFormError('Marks per question must be greater than zero.')
@@ -81,20 +82,17 @@ export default function AdminSettings() {
           </div>
         </Section>
 
-        <Section title="Event" desc="Name, venue, dates and which day is active.">
+        <Section title="Event" desc="Name, venue and the campaign window. The quiz opens and closes automatically.">
           <div className="grid gap-5 md:grid-cols-2">
             <Field label="Event name" htmlFor="s-name"><Input id="s-name" value={ev.eventName} onChange={(x) => e({ eventName: x.target.value })} /></Field>
             <Field label="Venue" htmlFor="s-venue"><Input id="s-venue" value={ev.venue} onChange={(x) => e({ venue: x.target.value })} /></Field>
-            <Field label="Day 1 date" htmlFor="s-d1"><Input id="s-d1" type="date" value={ev.day1Date} onChange={(x) => e({ day1Date: x.target.value })} /></Field>
-            <Field label="Day 2 date" htmlFor="s-d2"><Input id="s-d2" type="date" value={ev.day2Date} onChange={(x) => e({ day2Date: x.target.value })} /></Field>
-          </div>
-          <div className="mt-5">
-            <p className="text-sm font-medium text-fg">Active day</p>
-            <div className="mt-2 grid max-w-sm grid-cols-2 gap-2">
-              {([1, 2] as const).map((d) => (
-                <button key={d} onClick={() => e({ activeDay: d })} className={cn('rounded-xl border px-4 py-2.5 text-sm font-semibold transition', ev.activeDay === d ? 'border-accent bg-accent/10 text-fg' : 'border-line text-muted hover:border-line-strong')}>Day {d}</button>
-              ))}
-            </div>
+            <Field label="Campaign starts" htmlFor="s-cs" hint="Your device's local time (Dhaka).">
+              <Input id="s-cs" type="datetime-local" value={toLocalInput(ev.campaignStart)} onChange={(x) => x.target.value && e({ campaignStart: new Date(x.target.value).toISOString() })} />
+            </Field>
+            <Field label="Campaign ends" htmlFor="s-ce" hint="The quiz closes automatically at this time.">
+              <Input id="s-ce" type="datetime-local" value={toLocalInput(ev.campaignEnd)} onChange={(x) => x.target.value && e({ campaignEnd: new Date(x.target.value).toISOString() })} />
+            </Field>
+            <Field label="Results date" htmlFor="s-rd"><Input id="s-rd" type="date" value={ev.resultsDate} onChange={(x) => e({ resultsDate: x.target.value })} /></Field>
           </div>
         </Section>
 
@@ -171,6 +169,14 @@ export default function AdminSettings() {
       )}
     </>
   )
+}
+
+/** ISO timestamp → value for <input type="datetime-local"> in the device's time zone. */
+function toLocalInput(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
 function Section({ title, desc, children }: { title: string; desc: string; children: ReactNode }) {

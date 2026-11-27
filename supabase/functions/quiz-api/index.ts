@@ -45,6 +45,7 @@ type Settings = {
   event_name: string; venue: string; day1_date: string; day2_date: string; active_day: 1 | 2
   quiz_enabled: boolean; registration_enabled: boolean; active_quiz_id: string | null
   competition_info: string; rules: string[]; prizes: unknown[]; default_theme: string
+  campaign_start?: string; campaign_end?: string; results_date?: string
 }
 type Quiz = {
   id: string; title: string; duration_seconds: number; question_count: number
@@ -86,6 +87,17 @@ async function authParticipant(token: unknown) {
   return data as { id: string; full_name: string; university: string; department: string; event_day: 1 | 2 }
 }
 
+// ── Campaign window ───────────────────────────────────────────────
+// The quiz opens and closes by itself; the admin "Quiz live" switch can still pause it.
+function campaignStatus(st: Settings): 'upcoming' | 'live' | 'ended' {
+  const now = Date.now()
+  if (st.campaign_start && now < Date.parse(st.campaign_start)) return 'upcoming'
+  if (st.campaign_end && now > Date.parse(st.campaign_end)) return 'ended'
+  return 'live'
+}
+const dhakaDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }) : ''
+
 // ── Actions ───────────────────────────────────────────────────────
 
 async function actionConfig() {
@@ -94,8 +106,10 @@ async function actionConfig() {
   return {
     event: {
       name: s.event_name, venue: s.venue, day1Date: s.day1_date, day2Date: s.day2_date,
-      activeDay: s.active_day, quizEnabled: s.quiz_enabled && questionCount > 0,
-      registrationEnabled: s.registration_enabled, competitionInfo: s.competition_info,
+      activeDay: s.active_day, quizEnabled: s.quiz_enabled && questionCount > 0 && campaignStatus(s) === 'live',
+      registrationEnabled: s.registration_enabled && campaignStatus(s) !== 'ended', competitionInfo: s.competition_info,
+      campaignStart: s.campaign_start ?? null, campaignEnd: s.campaign_end ?? null, resultsDate: s.results_date ?? null,
+      campaignStatus: campaignStatus(s),
       rules: s.rules ?? [], prizes: s.prizes ?? [], defaultTheme: s.default_theme,
     },
     quiz: {
@@ -110,6 +124,7 @@ async function actionConfig() {
 
 async function actionRegister(body: Record<string, unknown>, req: Request) {
   const { settings } = await loadConfig(true)
+  if (campaignStatus(settings) === 'ended') throw new ApiError(403, 'REGISTRATION_CLOSED', 'The Brain Battle campaign has ended. Thank you for your interest!')
   if (!settings.registration_enabled) throw new ApiError(403, 'REGISTRATION_CLOSED', 'Registration is closed right now. Please check with the Kaizenext booth.')
 
   const fullName = cleanText(body.fullName, 80)
@@ -215,6 +230,9 @@ async function actionStart(body: Record<string, unknown>) {
     return buildAttemptState(existing, quiz.duration_seconds, quiz.negative_marking, quiz.max_violations ?? 2)
   }
 
+  const cs = campaignStatus(settings)
+  if (cs === 'upcoming') throw new ApiError(403, 'QUIZ_CLOSED', `The quiz opens on ${dhakaDate(settings.campaign_start)}.`)
+  if (cs === 'ended') throw new ApiError(403, 'QUIZ_CLOSED', 'The Brain Battle campaign has ended. Results will be announced soon.')
   if (!settings.quiz_enabled) throw new ApiError(403, 'QUIZ_CLOSED', 'The quiz is not live right now. Please check back shortly.')
 
   const { data: pool, error: pe } = await db
@@ -308,8 +326,8 @@ async function buildResult(attemptId: string) {
   if (error || !a) throw error ?? new ApiError(404, 'ATTEMPT_NOT_FOUND', 'Result not found.')
   // No public ranks: tell the participant only whether they are in today's lucky-draw pool.
   const [{ data: pool, error: pe }, { data: winners, error: we }] = await Promise.all([
-    db.rpc('get_draw_pool', { p_day: a.event_day }),
-    db.rpc('get_draw_winners', { p_day: a.event_day }),
+    db.rpc('get_draw_pool', { p_day: CAMPAIGN }),
+    db.rpc('get_draw_winners', { p_day: CAMPAIGN }),
   ])
   if (pe || we) throw pe ?? we
   // deno-lint-ignore no-explicit-any
@@ -369,11 +387,12 @@ async function actionResult(body: Record<string, unknown>) {
 // Public booth board: the day's lucky-draw pool (top scorers, names only) and drawn winners.
 // Deliberately carries no ranks, times or per-person scores.
 const POOL_NAME_LIMIT = 120
+const CAMPAIGN = 0 // draw functions: event_day 0 = the whole campaign
 
 async function actionLeaderboard(body: Record<string, unknown>) {
   const { settings } = await loadConfig()
-  const day: 1 | 2 = body.day === 1 || body.day === 2 ? body.day : settings.active_day
-  const key = `pool:${day}`
+  const day = CAMPAIGN // the whole 7-day campaign is one pool
+  const key = 'pool:campaign'
   const cached = leaderboardCache.get(key)
   if (cached && Date.now() - cached.at < 2500) return cached.value
 
@@ -385,8 +404,8 @@ async function actionLeaderboard(body: Record<string, unknown>) {
   const [{ data: pool, error: pe }, { data: winners, error: we }, { count: participants }, { count: completed }] = await Promise.all([
     db.rpc('get_draw_pool', { p_day: day }),
     db.rpc('get_draw_winners', { p_day: day }),
-    db.from('participants').select('id', { count: 'exact', head: true }).eq('event_day', day),
-    db.from('attempts').select('id', { count: 'exact', head: true }).eq('status', 'submitted').eq('disqualified', false).eq('event_day', day),
+    db.from('participants').select('id', { count: 'exact', head: true }),
+    db.from('attempts').select('id', { count: 'exact', head: true }).eq('status', 'submitted').eq('disqualified', false),
   ])
   if (pe || we) throw pe ?? we
   // deno-lint-ignore no-explicit-any
@@ -407,6 +426,8 @@ async function actionLeaderboard(body: Record<string, unknown>) {
     })),
     stats: { participants: participants ?? 0, completed: completed ?? 0 },
     activeDay: settings.active_day,
+    campaignStart: settings.campaign_start ?? null, campaignEnd: settings.campaign_end ?? null,
+    resultsDate: settings.results_date ?? null, campaignStatus: campaignStatus(settings),
     updatedAt: new Date().toISOString(),
   }
   leaderboardCache.set(key, { at: Date.now(), value })

@@ -54,9 +54,9 @@ const SAMPLE: [string, string[], number][] = [
 ]
 
 const DEMO_PEOPLE: [string, string, string, EventDay][] = [
-  ['Nusrat Jahan', 'Daffodil International University', 'CSE', 1],
+  ['Mohammad Saiful Islam Chowdhury', 'Daffodil International University', 'Computer Science & Engineering (CSE)', 1],
   ['Tanvir Ahmed', 'Daffodil International University', 'SWE', 1],
-  ['Farhana Akter', 'Daffodil International University', 'EEE', 1],
+  ['Farhana Akter', 'Daffodil International University', 'Electrical & Electronic Engineering (EEE)', 1],
   ['Rakib Hasan', 'Daffodil International University', 'CSE', 1],
   ['Sadia Islam', 'Daffodil International University', 'BBA', 1],
   ['Mehedi Hasan', 'Daffodil International University', 'MCT', 2],

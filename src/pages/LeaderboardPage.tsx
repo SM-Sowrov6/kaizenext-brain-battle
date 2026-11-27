@@ -248,7 +248,7 @@ function Podium({ entries, myAttempt }: { entries: LeaderboardEntry[]; myAttempt
             transition={{ type: 'spring', stiffness: 220, damping: 26, delay: i * 0.08 }}
             className="flex min-w-0 flex-col items-center"
           >
-            <div className="relative flex flex-col items-center px-1 text-center">
+            <div className="relative flex w-full min-w-0 flex-col items-center px-1 text-center">
               {first && (
                 <motion.span initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="mb-1 text-amber-300 drop-shadow-[0_4px_16px_rgb(252_211_77/0.6)]">
                   <Crown className="size-7 sm:size-9" fill="currentColor" />

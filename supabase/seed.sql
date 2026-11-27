@@ -1,9 +1,11 @@
 -- ════════════════════════════════════════════════════════════════
---  OPTIONAL starter question bank for Brain Battle.
---  Run once in the SQL editor (or `supabase db reset` locally).
---  Edit / replace everything from the Admin → Questions screen.
---  Correct answer = the option index in `c` (0 = A … 3 = D).
+--  Question bank 2026-11-27 — the 10 questions from
+--  SAMPLE_10_QUESTIONS_2026-11-27.md (4 hard / 3 medium / 3 easy).
+--  Two answer give-aways removed: Q6 bracket hint, Q7 date note on option D.
+--  Correct answer = option index in the last column (0 = A … 3 = D).
 -- ════════════════════════════════════════════════════════════════
+--  OPTIONAL starter bank for a fresh database (after the init migration).
+
 do $$
 declare
   v_quiz uuid := (select active_quiz_id from public.event_settings where id = 1);
@@ -11,28 +13,20 @@ declare
   r      record;
   i      int;
 begin
+  if v_quiz is null then raise exception 'No active quiz configured'; end if;
+
   for r in
     select * from (values
-      (1,  'What does "AI" stand for in technology?', array['Automated Interface','Artificial Intelligence','Advanced Internet','Algorithmic Integration'], 1),
-      (2,  'Which company developed the Android operating system (acquired in 2005)?', array['Apple','Microsoft','Google','Samsung'], 2),
-      (3,  'Which language is primarily used to style web pages?', array['HTML','Python','CSS','SQL'], 2),
-      (4,  'What does "SQL" stand for?', array['Structured Query Language','Simple Question Logic','Sequential Query Layer','System Query Link'], 0),
-      (5,  'Which data structure works on the First-In, First-Out (FIFO) principle?', array['Stack','Queue','Tree','Graph'], 1),
-      (6,  'In machine learning, what is "overfitting"?', array['A model that is too small to learn','A model that memorises training data and generalises poorly','A model that trains too fast','A model with no parameters'], 1),
-      (7,  'What is the binary representation of the decimal number 10?', array['1010','1100','1001','0110'], 0),
-      (8,  'Which of these is NOT a programming language?', array['Rust','Kotlin','Figma','Go'], 2),
-      (9,  'What does "HTTP" stand for?', array['HyperText Transfer Protocol','High Transfer Text Process','Hyperlink Text Transmission Program','Host Transfer Type Protocol'], 0),
-      (10, 'What is the capital of Bangladesh?', array['Chattogram','Khulna','Sylhet','Dhaka'], 3),
-      (11, 'What is the best first step when preparing for a job interview?', array['Memorise random facts','Research the company and the role','Skip reading the job description','Arrive without a CV'], 1),
-      (12, 'Which of these is a version control system?', array['Docker','Git','Nginx','Redis'], 1),
-      (13, 'What does "UI" stand for in product design?', array['Universal Integration','User Interface','Unified Input','User Interaction Index'], 1),
-      (14, 'Which number comes next: 2, 6, 12, 20, 30, ?', array['40','42','36','44'], 1),
-      (15, 'Which one is a cloud computing platform?', array['AWS','HTML5','Photoshop','Excel'], 0),
-      (16, 'What does "CPU" stand for?', array['Central Processing Unit','Computer Personal Unit','Core Program Utility','Central Power Unit'], 0),
-      (17, 'Which time complexity describes binary search on a sorted array?', array['O(n)','O(n²)','O(log n)','O(1)'], 2),
-      (18, 'A soft skill that employers value most in teams is:', array['Typing speed','Communication','Memorising syntax','Owning many gadgets'], 1),
-      (19, 'Which river is the longest flowing through Bangladesh?', array['Padma','Meghna','Jamuna','Karnaphuli'], 0),
-      (20, 'If a task takes 3 people 6 days, how long does it take 6 people (same pace)?', array['12 days','3 days','2 days','9 days'], 1)
+      (1, 'খুলনার নিউজপ্রিন্ট মিল কাঁচামাল হিসাবে ব্যবহার করে –', array['সেগুন কাঠ', 'সুন্দরী কাঠ', 'গেওয়া কাঠ', 'বাঁশ'], 2),
+      (2, 'গোলকৃমি কোন অংশ স্ফীত হয়ে সেমিনাল রিসেন্ট্যাকলে পরিণত হয়?', array['ডিম্বাশয়', 'শুক্রাশয়', 'অস্ত্র', 'ডিম্বনালী'], 3),
+      (3, 'চট্টগ্রাম বিশ্ববিদ্যালয়ের সর্বপ্রথম উপাচার্য কে?', array['ড. এ. আর. মল্লিক', 'অধ্যাপক আবুল ফজল', 'ড. এম. ইন্নাস আলী', 'ড. আব্দুল করিম'], 0),
+      (4, '''জুলে রিমে'' কোন দেশের অধিবাসী ছিলেন?', array['ফরাসি', 'ব্রাজিল', 'জার্মানি', 'আর্জেন্টিনা'], 0),
+      (5, 'সাধু রীতিতে কোন পদটির দীর্ঘরূপ হয় না?', array['বিশেষ্য', 'সর্বনাম', 'অব্যয়', 'ক্রিয়া'], 2),
+      (6, 'Lions are extremely good --- weighing --- their odds of success in terms of the number of themselves versus the number roaring from a loudspeaker.', array['in, at', 'at, up', 'out, by', 'at, in'], 1),
+      (7, 'বাংলাদেশে দৈনিক সর্বোচ্চ বিদ্যুৎ উৎপাদন কত মেগাওয়াট?', array['১০৯৫৮', '১১,৬২৩', '১২৪৯৪', '১৫,৬৪৮'], 3),
+      (8, 'Anis and Rafique ..... the floor.', array['would clean', 'clean', 'cleaned', 'to be cleaned'], 1),
+      (9, 'শীতল রক্তবিশিষ্ট একটি প্রাণী?', array['হাঙর', 'পেঙ্গুইন', 'কবুতর', 'ব্যাঙ'], 3),
+      (10, 'বাংলাদেশের জাতীয় সংসদে উত্থাপিত সরকারি বিল বলতে কী বুঝায়?', array['স্পিকারের বিল', 'সংসদ সদস্যগণ কর্তৃক উত্থাপিত বিল', 'মন্ত্রীগণ কর্তৃক উত্থাপিত বিল', 'সরকার দলীয় সংসদ সদস্যগণ কর্তৃক উত্থাপিত বিল'], 2)
     ) as t(pos, prompt, opts, c)
   loop
     insert into public.questions (quiz_id, prompt, marks, position)

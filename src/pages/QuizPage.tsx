@@ -21,6 +21,9 @@ interface LocalCache { answers: Record<string, string>; pending: AnswerMap }
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
 
+/** Mark Bangla text so it gets Bangla-friendly typography (see :lang(bn) in index.css). */
+const langOf = (text: string) => (/[ঀ-৿]/.test(text) ? 'bn' : undefined)
+
 export default function QuizPage() {
   useTitle('Quiz in progress')
   const navigate = useNavigate()
@@ -321,7 +324,7 @@ export default function QuizPage() {
                     {attempt.negativeMarking && <span className="text-warning"> · −{attempt.negativeMark} if wrong</span>}
                   </span>
                 </div>
-                <h1 className="font-headline mt-5 text-xl leading-snug text-fg sm:text-[1.65rem]">{q.prompt}</h1>
+                <h1 lang={langOf(q.prompt)} className="font-headline mt-5 text-xl leading-snug text-fg sm:text-[1.65rem]">{q.prompt}</h1>
                 <div role="radiogroup" aria-label="Answer options" className="mt-7 space-y-3">
                   {q.options.map((o, i) => (
                     <OptionButton

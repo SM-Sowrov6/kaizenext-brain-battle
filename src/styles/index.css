@@ -25,9 +25,9 @@
   --t-danger: #fb5a4a;
   --t-glow-1: rgb(232 89 58 / 0.2);
   --t-glow-2: rgb(0 210 148 / 0.1);
-  --t-font-display: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --t-font-display: 'Schibsted Grotesk', 'Hind Siliguri', ui-sans-serif, system-ui, sans-serif;
   --t-font-accent: 'Instrument Serif', ui-serif, Georgia, serif;
-  --t-font-sans: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --t-font-sans: 'Schibsted Grotesk', 'Hind Siliguri', ui-sans-serif, system-ui, sans-serif;
   --t-accent-style: italic;
   --t-display-weight: 800;
   --t-display-tracking: -0.04em;
@@ -125,6 +125,16 @@
   font-family: var(--t-font-display);
   font-weight: var(--t-display-weight);
   letter-spacing: var(--t-display-tracking);
+}
+
+/* Bangla: the English headline style (tight negative tracking, 800 weight) crushes
+   Bangla conjuncts, so Bangla text gets normal spacing and a lighter weight. */
+/* Unlayered on purpose: it must override the font-headline utility layer. */
+:lang(bn).font-headline,
+:lang(bn) .font-headline {
+  letter-spacing: 0;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 @utility font-flair {
